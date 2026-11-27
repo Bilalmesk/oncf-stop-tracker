@@ -1,0 +1,340 @@
+﻿{
+  "service_id": "MA_S0218",
+  "service_label": "MA",
+  "travel_date": "2026-11-27",
+  "timezone": "Africa/Casablanca",
+  "origin_station_id": "200",
+  "destination_station_id": "490",
+  "source": {
+    "name": "GTFS feed (stop sequence) + API gateway (times)",
+    "url": "https://shortora.duckdns.org/oncf/info-travaux",
+    "retrieved_at": "2026-11-25T23:40:52.528748+01:00",
+    "data_type": "mixed"
+  },
+  "notes": [
+    "Intermediate-station arrival/departure split is inferred by the feed author from ONCF's one-time-per-station grilles horaires.",
+    "Stop sequence from the community GTFS feed; the Fès stop was replaced with ONCF's own answer. Other intermediate times remain unofficial."
+  ],
+  "stops": [
+    {
+      "station_id": "200",
+      "station_name": {
+        "fr": "Casa Voyageurs",
+        "ar": "الدار البيضاء المسافرون",
+        "en": null
+      },
+      "sequence": 1,
+      "kind": "origin",
+      "arrival": null,
+      "departure": "2026-11-27T21:07:00+01:00",
+      "stop_duration_minutes": null,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "213",
+      "station_name": {
+        "fr": "Ain Sebaa",
+        "ar": "عين السبع",
+        "en": null
+      },
+      "sequence": 2,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T21:15:00+01:00",
+      "departure": "2026-11-27T21:16:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "217",
+      "station_name": {
+        "fr": "Mohammedia",
+        "ar": "المحمدية",
+        "en": null
+      },
+      "sequence": 3,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T21:27:00+01:00",
+      "departure": "2026-11-27T21:28:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "229",
+      "station_name": {
+        "fr": "Rabat Agdal",
+        "ar": "الرباط أكدال",
+        "en": null
+      },
+      "sequence": 4,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T22:05:00+01:00",
+      "departure": "2026-11-27T22:08:00+01:00",
+      "stop_duration_minutes": 3,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "231",
+      "station_name": {
+        "fr": "Rabat Ville",
+        "ar": "الرباط المدينة",
+        "en": null
+      },
+      "sequence": 5,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T22:11:00+01:00",
+      "departure": "2026-11-27T22:14:00+01:00",
+      "stop_duration_minutes": 3,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "237",
+      "station_name": {
+        "fr": "Sale",
+        "ar": "سلا",
+        "en": null
+      },
+      "sequence": 6,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T22:22:00+01:00",
+      "departure": "2026-11-27T22:23:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "238",
+      "station_name": {
+        "fr": "Sale Tabriquet",
+        "ar": "سلا تابريكت",
+        "en": null
+      },
+      "sequence": 7,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T22:26:00+01:00",
+      "departure": "2026-11-27T22:27:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "250",
+      "station_name": {
+        "fr": "Kenitra",
+        "ar": "القنيطرة",
+        "en": null
+      },
+      "sequence": 8,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T22:48:00+01:00",
+      "departure": "2026-11-27T22:51:00+01:00",
+      "stop_duration_minutes": 3,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "264",
+      "station_name": {
+        "fr": "Sidi Slimane Medina",
+        "ar": "س . سليمان المدينة",
+        "en": null
+      },
+      "sequence": 9,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T23:29:00+01:00",
+      "departure": "2026-11-27T23:30:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "350",
+      "station_name": {
+        "fr": "Sidi Kacem",
+        "ar": "سيدي قاسم",
+        "en": null
+      },
+      "sequence": 10,
+      "kind": "intermediate",
+      "arrival": "2026-11-27T23:45:00+01:00",
+      "departure": "2026-11-27T23:48:00+01:00",
+      "stop_duration_minutes": 3,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "363",
+      "station_name": {
+        "fr": "Meknes",
+        "ar": "مكناس",
+        "en": null
+      },
+      "sequence": 11,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T00:32:00+01:00",
+      "departure": "2026-11-28T00:35:00+01:00",
+      "stop_duration_minutes": 3,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "380",
+      "station_name": {
+        "fr": "Fes",
+        "ar": "فاس",
+        "en": null
+      },
+      "sequence": 12,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T01:07:00+01:00",
+      "departure": "2026-11-28T01:40:00+01:00",
+      "stop_duration_minutes": 33,
+      "platform": null,
+      "status": "scheduled_official",
+      "warnings": []
+    },
+    {
+      "station_id": "406",
+      "station_name": {
+        "fr": "Sidi Harazem",
+        "ar": "سيدي",
+        "en": null
+      },
+      "sequence": 13,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T01:59:00+01:00",
+      "departure": "2026-11-28T02:07:00+01:00",
+      "stop_duration_minutes": 8,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "411",
+      "station_name": {
+        "fr": "Ain Sbit",
+        "ar": "عين سبيت",
+        "en": null
+      },
+      "sequence": 14,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T02:24:00+01:00",
+      "departure": "2026-11-28T02:36:00+01:00",
+      "stop_duration_minutes": 12,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "431",
+      "station_name": {
+        "fr": "Taza",
+        "ar": "تازة",
+        "en": null
+      },
+      "sequence": 15,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T03:57:00+01:00",
+      "departure": "2026-11-28T03:59:00+01:00",
+      "stop_duration_minutes": 2,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "441",
+      "station_name": {
+        "fr": "Guercif",
+        "ar": "كرسيف",
+        "en": null
+      },
+      "sequence": 16,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T04:52:00+01:00",
+      "departure": "2026-11-28T04:53:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "451",
+      "station_name": {
+        "fr": "Taourirt",
+        "ar": "تاوريرت",
+        "en": null
+      },
+      "sequence": 17,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T05:32:00+01:00",
+      "departure": "2026-11-28T05:34:00+01:00",
+      "stop_duration_minutes": 2,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "459",
+      "station_name": {
+        "fr": "El Aioun",
+        "ar": "العيون",
+        "en": null
+      },
+      "sequence": 18,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T06:24:00+01:00",
+      "departure": "2026-11-28T06:25:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "463",
+      "station_name": {
+        "fr": "Naima",
+        "ar": "النعيمة",
+        "en": null
+      },
+      "sequence": 19,
+      "kind": "intermediate",
+      "arrival": "2026-11-28T06:44:00+01:00",
+      "departure": "2026-11-28T06:45:00+01:00",
+      "stop_duration_minutes": 1,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    },
+    {
+      "station_id": "490",
+      "station_name": {
+        "fr": "Oujda",
+        "ar": "وجدة",
+        "en": null
+      },
+      "sequence": 20,
+      "kind": "destination",
+      "arrival": "2026-11-28T07:11:00+01:00",
+      "departure": null,
+      "stop_duration_minutes": null,
+      "platform": null,
+      "status": "scheduled_unofficial",
+      "warnings": []
+    }
+  ]
+}

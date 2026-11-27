@@ -1,0 +1,26 @@
+﻿__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Runtime cache (re-fetched on demand)
+data/cache/
+
+# Third-party data is not redistributed:
+#  - ONCF PDFs and API captures are subject to ONCF's terms
+#  - the GTFS feed is ODbL and should be downloaded from its publisher
+# Tests skip automatically when these are absent.
+data/official/
+data/pdf/
+data/orhazal/
+data/transitdim/
+data/newsbubbles/
+data/*.zip
+
+# Local output
+*.log
+
+# Downloadable source geometry (the merged country outline is committed)
+data/geo/
+

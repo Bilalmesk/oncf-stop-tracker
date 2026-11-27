@@ -1,0 +1,6 @@
+requests>=2.31
+truststore>=0.10
+# Morocco moved permanently to UTC+0 on 2026-09-20. Older tzdata still reports
+# UTC+1 and makes every countdown one hour wrong.
+tzdata>=2026.6
+pytest>=8.0
