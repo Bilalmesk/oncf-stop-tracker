@@ -1,4 +1,4 @@
-﻿"""Repository: coordinates the official gateway and the GTFS feed.
+"""Repository: coordinates the official gateway and the GTFS feed.
 
 Rules it enforces:
   * a journey's *shape* (ordered stations) may come from GTFS;

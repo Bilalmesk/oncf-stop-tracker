@@ -1,4 +1,4 @@
-﻿# ONCF Live Map
+# ONCF Live Map
 
 A Morocco rail tracker: scheduled stop times, **live station departure boards**
 and a rich interactive map.

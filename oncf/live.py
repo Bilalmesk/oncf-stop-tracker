@@ -1,4 +1,4 @@
-﻿"""Local live map server.
+"""Local live map server.
 
 Serves a single-page map that combines four things:
 

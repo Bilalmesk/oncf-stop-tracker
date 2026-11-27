@@ -1,4 +1,4 @@
-﻿"""Tests for the official grid-PDF parser.
+"""Tests for the official grid-PDF parser.
 
 The PDFs are ONCF's published timetables. They are optional in a checkout, so
 the suite skips when they are absent.

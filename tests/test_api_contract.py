@@ -1,4 +1,4 @@
-﻿"""Contract tests pinned to real ONCF responses saved in data/official/.
+"""Contract tests pinned to real ONCF responses saved in data/official/.
 
 These run offline: they protect the parser against source-format drift and
 document the verified example from the brief (train MA, Casa Voyageurs -> Oujda).

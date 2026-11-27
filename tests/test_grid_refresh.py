@@ -1,4 +1,4 @@
-﻿"""Unit tests for the automatic timetable-PDF page parser and check cadence."""
+"""Unit tests for the automatic timetable-PDF page parser and check cadence."""
 from __future__ import annotations
 
 import json
