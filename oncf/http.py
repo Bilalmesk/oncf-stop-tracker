@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import contextlib
 import os
+import posixpath
 import socket
 import threading
 import time
 from typing import Any, Iterator
+from urllib.parse import urlparse
 
 import requests
 
@@ -54,6 +56,26 @@ def ensure_os_trust() -> bool:
 
 class OncfApiError(RuntimeError):
     """Raised when the source returns an error body or an unusable response."""
+
+
+def is_gateway_resource_url(base_url: str, url: str) -> bool:
+    """True only for HTTPS URLs on the configured gateway and under its path.
+
+    CMS responses are sanitized by the gateway, but this is the last line of
+    defence: even a malformed or future upstream link cannot make the public
+    client fetch an ONCF host directly.
+    """
+    base = urlparse(base_url)
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not base.hostname:
+        return False
+    if parsed.hostname != base.hostname:
+        return False
+    base_path = posixpath.normpath(base.path.rstrip("/") or "/")
+    path = posixpath.normpath(parsed.path or "/")
+    if base_path == "/":
+        return True
+    return path == base_path or path.startswith(base_path + "/")
 
 
 def _doh_lookup(host: str, timeout: float = 10.0) -> str | None:
@@ -123,6 +145,8 @@ class HttpClient:
             if path_or_url.lower().startswith(("http://", "https://"))
             else f"{self.base_url}{path_or_url}"
         )
+        if not is_gateway_resource_url(self.base_url, url):
+            raise OncfApiError("refusing non-gateway resource URL")
         host = requests.utils.urlparse(url).hostname or ""
         override = os.environ.get("ONCF_DNS_OVERRIDE")
         headers = {"Accept": "application/pdf, application/octet-stream, */*"}
