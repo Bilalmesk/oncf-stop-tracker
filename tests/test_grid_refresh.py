@@ -37,6 +37,25 @@ def test_timetable_links_pairs_the_current_heading_with_each_pdf():
     ]
 
 
+def test_timetable_links_does_not_double_prefix_gateway_urls():
+    gateway_link = f"{ONCF_BASE_URL.rstrip('/')}/media/static/fr/images/Casa-Oriental.pdf"
+    payload = {
+        "pages": [
+            {
+                "pageSlug": "telechargement-des-horaires",
+                "pageBlocks": [
+                    {
+                        "blockName": "bouton",
+                        "props": {"button": {"link": gateway_link}},
+                    }
+                ],
+            }
+        ]
+    }
+
+    assert timetable_links(payload)[0]["url"] == gateway_link
+
+
 def test_refresh_due_respects_the_manifest_timestamp(tmp_path):
     status = tmp_path / "grid-refresh.json"
     now = datetime.now(timezone.utc)

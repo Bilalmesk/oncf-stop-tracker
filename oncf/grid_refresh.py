@@ -41,11 +41,23 @@ def _pages(payload: Any) -> list[dict]:
 
 
 def _gateway_url(url: str) -> str:
-    """Keep only the path and put it behind the configured API gateway."""
+    """Keep only the path and put it behind the configured API gateway.
+
+    Gateway CMS responses may already contain gateway links. Strip the gateway
+    prefix before adding it back so this helper is idempotent and never builds
+    a doubled ``/oncf/oncf/...`` path.
+    """
     parsed = urlparse(url)
-    if parsed.scheme in {"http", "https"}:
-        return f"{ONCF_BASE_URL}{parsed.path}"
-    return url
+    if parsed.scheme not in {"http", "https"}:
+        return url
+    gateway = ONCF_BASE_URL.rstrip("/")
+    base = urlparse(gateway)
+    base_path = base.path.rstrip("/")
+    path = parsed.path
+    if parsed.netloc == base.netloc and base_path:
+        while path == base_path or path.startswith(base_path + "/"):
+            path = path[len(base_path):] or "/"
+    return f"{gateway}{path}"
 
 
 def timetable_links(payload: Any) -> list[dict[str, str]]:
