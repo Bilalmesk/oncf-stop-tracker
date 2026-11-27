@@ -1,4 +1,4 @@
-﻿"""Command-line interface for the ONCF stop tracker."""
+"""Command-line interface for the ONCF stop tracker."""
 from __future__ import annotations
 
 import argparse
@@ -8,14 +8,24 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .api import OfficialOncfClient
-from .config import CACHE_DIR, DATA_DIR, GRID_DIR, GTFS_DIR, ONCF_BASE_URL, SAMPLE_DIR, ensure_dirs
+from .config import (
+    AUTO_GRID_DIR,
+    CACHE_DIR,
+    DATA_DIR,
+    GRID_DIR,
+    GTFS_DIR,
+    ONCF_BASE_URL,
+    SAMPLE_DIR,
+    ensure_dirs,
+)
+from .grid import GridLibrary
 from .gtfs import GtfsFeed
 from .http import HttpClient
 from .mobile import LiveDeparturesService, MobileOncfClient
 from .models import DataType, Journey
-from .repository import Repository
+from .repository import Repository, trim_to_segment
 from .serialization import journey_to_dict
-from .stations import StationCatalog
+from .stations import Station, StationCatalog
 from .timeutil import format_time
 
 
@@ -57,7 +67,39 @@ def _repo(args: argparse.Namespace, catalog: StationCatalog) -> Repository:
 
     if gtfs is None and official is None:
         raise SystemExit("No data source available: need the GTFS directory or network access.")
-    return Repository(catalog, official=official, gtfs=gtfs)
+
+    automatic = GridLibrary.load_dir(AUTO_GRID_DIR)
+    grids = automatic if len(automatic) else GridLibrary.load_dir(GRID_DIR)
+    return Repository(catalog, official=official, gtfs=gtfs, grids=grids)
+
+
+def _journey_for_stations(
+    repo: Repository,
+    args: argparse.Namespace,
+    origin: Station,
+    destination: Station,
+) -> Journey:
+    """Use the same full stop-list path as the web server.
+
+    ``repo.journey`` only knows GTFS and the two-station official answer. The
+    grid PDFs (including auto-current) are used by ``journey_between_sets``, so
+    the CLI must take that path or it will silently show only origin/destination.
+    """
+    if args.source == "official":
+        return repo.journey(
+            args.train, origin.code, destination.code, args.date, source="official"
+        )
+    if args.source == "gtfs":
+        return repo.journey(
+            args.train, origin.code, destination.code, args.date, source="gtfs"
+        )
+    full = repo.journey_between_sets(
+        args.train,
+        [origin.code],
+        [destination.code],
+        args.date,
+    )
+    return trim_to_segment(full, [origin.code], [destination.code])
 
 
 def _print_provenance(journey: Journey) -> None:
@@ -152,9 +194,7 @@ def cmd_stops(args: argparse.Namespace) -> int:
     repo = _repo(args, catalog)
 
     try:
-        journey = repo.journey(
-            args.train, origin.code, destination.code, args.date, source=args.source
-        )
+        journey = _journey_for_stations(repo, args, origin, destination)
     except LookupError as exc:
         print(f"Not available: {exc}")
         return 2
@@ -185,7 +225,7 @@ def cmd_stop(args: argparse.Namespace) -> int:
     repo = _repo(args, catalog)
 
     try:
-        journey = repo.journey(args.train, origin.code, destination.code, args.date, source=args.source)
+        journey = _journey_for_stations(repo, args, origin, destination)
     except LookupError as exc:
         print(f"Not available: {exc}")
         return 2
