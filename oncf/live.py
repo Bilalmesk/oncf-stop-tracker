@@ -824,7 +824,7 @@ def make_handler(app: LiveApp):
                 places = []
                 for city in cities:
                     names = [
-                        app.catalog.maybe_get(code).display_name
+                        clean_station_name(app.catalog.maybe_get(code).display_name)
                         for code in city.station_codes
                         if app.catalog.maybe_get(code)
                     ]
@@ -868,7 +868,7 @@ def make_handler(app: LiveApp):
                                 "code": s.code,
                                 "name": clean_station_name(s.name_fr),
                                 "ar": s.name_ar,
-                                "en": s.name_en,
+                                "en": clean_station_name(s.name_en),
                                 "lat": s.latitude,
                                 "lon": s.longitude,
                             }
