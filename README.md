@@ -23,6 +23,8 @@ a separate private repository.
   level, refreshed every 60 seconds.
 - **Where is it now?** — timetable-based position estimate with the current leg,
   delay shift and a clear “not GPS” label.
+- **I'm on this trip** — one tap makes the map follow the estimated train marker,
+  persists across reloads, and offers the mode when GPS finds you at the origin.
 - **Community reports** — travellers can report a cancellation or departure
   delay, confirm/dispute others, all marked unverified.
 - **Journey planner** — city or station autocomplete, popular routes, nearest
@@ -93,6 +95,22 @@ POST /api/reports/{id}/vote
 A cancellation report adds an advisory but does not overwrite the timetable
 status. A delay report shifts the estimate and is labelled `community`; a live
 board delay takes precedence when the train is still at the origin.
+
+## I'm on this trip
+
+Tap **I'm on this trip** on the status card to enter a persistent follow mode:
+
+- the map centers on the estimated train marker / current stop and keeps
+  following it as the timetable advances;
+- the status card gets an amber onboard outline and the button becomes
+  **Leave trip**;
+- the choice survives a page reload (`localStorage` key `oncf:onboard`);
+- if GPS is enabled and you are within 2 km of the boarding station, the app
+  offers **“Yes, I'm on board”** instead of requiring the button.
+
+The map follows the **timetable estimate**, not GPS telemetry. Your own GPS dot
+stays visible and independent. **Leave trip** stops the follow behavior without
+closing the journey.
 
 ## Install and run
 

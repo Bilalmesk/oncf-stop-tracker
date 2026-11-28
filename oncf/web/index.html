@@ -273,6 +273,7 @@
   .report-msg { font-size: 11px; margin-top: 3px; color: var(--text); }
   .report-votes { display: flex; gap: 8px; margin-top: 5px; }
   .report-votes .link-btn { font-size: 11px; }
+  #tripStatusCard.onboard { border-color: var(--amber); box-shadow: 0 0 0 1px rgba(240,160,42,.18); }
 
   .route-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 8px; align-items: end; }
   .route-row.two-col { grid-template-columns: 1fr 1fr; }
@@ -618,8 +619,14 @@
           </div>
           <div id="tripStatusAdvisory" class="trip-notice" hidden></div>
           <div class="report-actions">
+            <button class="btn small" id="onboardBtn" type="button">I'm on this trip</button>
             <button class="btn small primary" id="reportOpenBtn" type="button">Report a problem</button>
             <span class="small muted">Community reports are unverified.</span>
+          </div>
+          <div id="onboardPrompt" class="trip-notice" hidden>
+            <span id="onboardPromptText">You're near the boarding station. Are you on this trip?</span>
+            <button class="link-btn" id="onboardYes" type="button">Yes, I'm on board</button>
+            <button class="link-btn" id="onboardNo" type="button">Not now</button>
           </div>
           <div id="reportList" class="report-list"></div>
           <div class="small muted" style="margin-top:6px">
@@ -839,6 +846,13 @@ const state = {
   trafficNotices: [],
   tripStatus: null,
   tripStatusLoading: false,
+  onboard: (() => {
+    try { return JSON.parse(localStorage.getItem("oncf:onboard") || "null"); }
+    catch (_) { return null; }
+  })(),
+  onboardPromptDismissed: false,
+  onboardPromptReady: false,
+  lastFollowAt: 0,
 };
 
 /* ------------------------------------------------------------------ */
@@ -1883,6 +1897,7 @@ function applyUserPosition(pos) {
   const engine = activeMap();
   if (engine) engine.setUser(state.user[0], state.user[1]);
   renderNearest();
+  maybePromptOnboard();
   if (state.pendingLocate) {
     state.pendingLocate = false;
     flyToUser();
@@ -2727,6 +2742,7 @@ function animateTrain() {
   }
   const engine = activeMap();
   if (engine && engine.setTrain) engine.setTrain(est.point);
+  followOnboard(est);
 }
 
 function tick() {
@@ -3008,6 +3024,8 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
     }
     maybeAutoVerify();
     loadTripStatus();
+    updateOnboardUi();
+    if (onboardTripMatchesCurrent()) setTimeout(onboardFocus, 800);
   } catch (e) {
     err.textContent = "Error: " + e.message;
     openSearch();
@@ -3318,6 +3336,140 @@ async function submitReport(event) {
     error.focus();
   } finally {
     submit.disabled = false;
+  }
+}
+
+function onboardTripMatchesCurrent() {
+  const q = currentTripQuery();
+  const saved = state.onboard;
+  return !!(
+    q && saved
+    && q.train === saved.train
+    && q.from === saved.from
+    && q.to === saved.to
+    && q.date === saved.date
+  );
+}
+
+function updateOnboardUi() {
+  const active = onboardTripMatchesCurrent();
+  const button = document.getElementById("onboardBtn");
+  if (button) {
+    button.textContent = active ? "Leave trip" : "I'm on this trip";
+    button.classList.toggle("primary", !active);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  }
+  document.getElementById("tripStatusCard")?.classList.toggle("onboard", active);
+  const prompt = document.getElementById("onboardPrompt");
+  if (prompt) {
+    prompt.hidden = active || !state.onboardPromptReady || state.onboardPromptDismissed;
+  }
+}
+
+function activateOnboard() {
+  const q = currentTripQuery();
+  if (!q) return;
+  const origin = state.stops?.[0];
+  const destination = state.stops?.[state.stops.length - 1];
+  state.onboard = {
+    ...q,
+    fromName: origin?.name?.fr || q.from,
+    toName: destination?.name?.fr || q.to,
+  };
+  localStorage.setItem("oncf:onboard", JSON.stringify(state.onboard));
+  state.onboardPromptReady = false;
+  updateOnboardUi();
+  loadTripStatus(true);
+  setTimeout(onboardFocus, 350);
+  showBanner(
+    `Following train ${q.train}. The map follows the timetable estimate, not GPS.`,
+    5500,
+  );
+}
+
+function leaveOnboard() {
+  state.onboard = null;
+  state.onboardPromptReady = false;
+  localStorage.removeItem("oncf:onboard");
+  updateOnboardUi();
+  showBanner("Trip mode off. The map is free to move again.", 3500);
+}
+
+function maybePromptOnboard() {
+  if (onboardTripMatchesCurrent() || state.onboardPromptDismissed) return;
+  if (!state.user || !state.data || !state.stops?.length) return;
+  const origin = state.stops[0];
+  if (origin.lat == null || origin.lon == null) return;
+  const metres = haversine(state.user, [origin.lat, origin.lon]);
+  if (metres > 2000) return;
+  state.onboardPromptReady = true;
+  const text = document.getElementById("onboardPromptText");
+  if (text) {
+    text.textContent =
+      `You're ${formatDistance(metres)} from ${origin.name?.fr || "the boarding station"}. Are you on this trip?`;
+  }
+  updateOnboardUi();
+}
+
+function onboardPoint(est) {
+  if (!est) return null;
+  if (est.status === "running" && est.point) return est.point;
+  if (est.status === "at_station" && state.stops[est.station]) {
+    const stop = state.stops[est.station];
+    return stop.lat != null ? [stop.lat, stop.lon] : null;
+  }
+  if (est.status === "not_departed" && state.stops[0]) {
+    const stop = state.stops[0];
+    return stop.lat != null ? [stop.lat, stop.lon] : null;
+  }
+  if (est.status === "arrived") {
+    const stop = state.stops[state.stops.length - 1];
+    return stop?.lat != null ? [stop.lat, stop.lon] : null;
+  }
+  return null;
+}
+
+function onboardFocus() {
+  if (!onboardTripMatchesCurrent()) return;
+  const est = scheduledAt(Date.now());
+  const point = onboardPoint(est);
+  if (!point) return;
+  const engine = activeMap();
+  if (currentEngine === "classic") {
+    map.flyTo(point, Math.max(map.getZoom(), 11), { duration: .9 });
+  } else if (currentEngine === "google") {
+    const gmap = engine && engine.getMap && engine.getMap();
+    if (gmap) {
+      gmap.panTo({ lat: point[0], lng: point[1] });
+      if (gmap.getZoom() < 11) gmap.setZoom(11);
+    }
+  } else {
+    const emap = engine && engine.getMap && engine.getMap();
+    if (emap && emap.flyTo) {
+      emap.flyTo({ center: [point[1], point[0]], zoom: Math.max(emap.getZoom(), 11), duration: 900 });
+    }
+  }
+}
+
+function followOnboard(est) {
+  if (!onboardTripMatchesCurrent()) return;
+  const now = Date.now();
+  if (now - state.lastFollowAt < 2500) return;
+  const point = onboardPoint(est);
+  if (!point) return;
+  state.lastFollowAt = now;
+  const engine = activeMap();
+  if (currentEngine === "classic") {
+    map.panTo(point, { animate: true, duration: .8 });
+  } else if (currentEngine === "google") {
+    const gmap = engine && engine.getMap && engine.getMap();
+    if (gmap) gmap.panTo({ lat: point[0], lng: point[1] });
+  } else {
+    const emap = engine && engine.getMap && engine.getMap();
+    if (emap && emap.easeTo) {
+      emap.easeTo({ center: [point[1], point[0]], duration: 800 });
+    }
   }
 }
 
@@ -3961,12 +4113,23 @@ setInterval(() => {
 }, 30000);
 
 document.getElementById("reportOpenBtn").addEventListener("click", openReportDialog);
+document.getElementById("onboardBtn").addEventListener("click", () => {
+  if (onboardTripMatchesCurrent()) leaveOnboard();
+  else activateOnboard();
+});
+document.getElementById("onboardYes").addEventListener("click", activateOnboard);
+document.getElementById("onboardNo").addEventListener("click", () => {
+  state.onboardPromptDismissed = true;
+  state.onboardPromptReady = false;
+  updateOnboardUi();
+});
 document.getElementById("reportCloseBtn").addEventListener("click", closeReportDialog);
 document.getElementById("reportCancel").addEventListener("click", closeReportDialog);
 document.getElementById("reportKind").addEventListener("change", syncReportKind);
 document.getElementById("reportForm").addEventListener("submit", submitReport);
 document.getElementById("tripStatusRefresh").addEventListener("click", () => loadTripStatus(true));
 initReportValidity();
+updateOnboardUi();
 
 animateTrain();
 </script>
