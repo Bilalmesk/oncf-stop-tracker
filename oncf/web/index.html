@@ -106,6 +106,7 @@
   #quickCard { order: 10; }
   .live-note { order: 20; }
   #nextCard { order: 30; }
+  #speedCard { order: 32; }
   #selectedCard { order: 35; }
   #stopsCard { order: 40; }
   #departuresCard { order: 50; }
@@ -115,6 +116,11 @@
   #sourcesCard { order: 80; }
   .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
   .card h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .speed-main { display: flex; align-items: baseline; gap: 6px; }
+  .speed-value { font-size: 34px; line-height: 1; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .speed-unit { font-size: 12px; color: var(--muted); }
+  .speed-bar { height: 6px; margin: 10px 0 8px; border-radius: 999px; overflow: hidden; background: var(--line); }
+  .speed-fill { height: 100%; width: 0; background: linear-gradient(90deg, #3fb950, #f0a02a, #f85149); transition: width .35s ease; }
 
   .quick-start { background: linear-gradient(155deg, #202b39 0%, #171f2a 52%, #151b23 100%);
     border-color: #344459; }
@@ -632,6 +638,23 @@
           <div class="row small muted"><span id="progressWhere">—</span><span id="refreshedAt">—</span></div>
         </div>
 
+        <div class="card" id="speedCard" hidden>
+          <h3>
+            <span data-i18n="speed.title">Speed</span>
+            <span class="badge" id="speedModeBadge" data-i18n="speed.estimate">estimate</span>
+          </h3>
+          <div class="speed-main">
+            <span class="speed-value" id="speedValue">—</span>
+            <span class="speed-unit" data-i18n="speed.unit">km/h</span>
+          </div>
+          <div class="speed-bar" aria-hidden="true"><div class="speed-fill" id="speedFill"></div></div>
+          <div class="small muted" id="speedSource">—</div>
+          <div class="small muted" id="speedSecondary" style="margin-top:3px"></div>
+          <div class="small muted" style="margin-top:6px" data-i18n="speed.note">
+            GPS speed is your device; timetable speed is an average estimate, not live train telemetry.
+          </div>
+        </div>
+
         <div class="card" id="tripStatusCard" hidden>
           <h3><span data-i18n="status.title">Where is it now?</span> <span class="badge unofficial" data-i18n="status.estimate">Timetable estimate</span></h3>
           <div class="row"><span id="tripStatusLine" class="big" style="font-size:18px">—</span></div>
@@ -884,6 +907,7 @@ const state = {
   line: null, stationLayer: null, connector: null,
   alertRadius: 8000, alertArmed: false, alertInside: false, notify: false, watchId: null,
   moroccoOffset: null, network: null, gridData: null, gpsAccuracy: null,
+  gpsSpeed: null, gpsFix: null, speedUpdatedAt: 0,
   lastRefresh: 0, autoRefreshMs: 600000,
   networkVisible: localStorage.getItem("oncf:network2") !== "0",
   pendingLocate: false,
@@ -1972,7 +1996,30 @@ function renderPopularChips() {
 }
 
 function applyUserPosition(pos) {
-  state.user = [pos.coords.latitude, pos.coords.longitude];
+  const now = Date.now();
+  const latitude = pos.coords.latitude;
+  const longitude = pos.coords.longitude;
+  let metresPerSecond = null;
+  if (pos.coords.speed != null && Number.isFinite(pos.coords.speed) && pos.coords.speed >= 0) {
+    metresPerSecond = pos.coords.speed;
+  } else if (state.gpsFix) {
+    const seconds = (now - state.gpsFix.t) / 1000;
+    if (seconds >= 1 && seconds <= 30) {
+      metresPerSecond = haversine(
+        [latitude, longitude],
+        [state.gpsFix.lat, state.gpsFix.lon],
+      ) / seconds;
+    }
+  }
+  if (metresPerSecond != null && Number.isFinite(metresPerSecond)) {
+    const kmh = Math.min(300, Math.max(0, metresPerSecond * 3.6));
+    state.gpsSpeed = state.gpsSpeed == null ? kmh : state.gpsSpeed * 0.65 + kmh * 0.35;
+    state.speedUpdatedAt = now;
+  } else {
+    state.gpsSpeed = null;
+  }
+  state.gpsFix = { lat: latitude, lon: longitude, t: now };
+  state.user = [latitude, longitude];
   state.gpsAccuracy = pos.coords.accuracy;
   const badge = document.getElementById("gpsBadge");
   if (badge) {
@@ -2839,6 +2886,73 @@ function moroccoClock(now) {
   return `${pad(moment.getUTCHours())}:${pad(moment.getUTCMinutes())}:${pad(moment.getUTCSeconds())}`;
 }
 
+function timetableLegSpeed(est) {
+  if (!est || est.status !== "running" || est.leg == null) return null;
+  const start = state.schedule[est.leg];
+  const end = state.schedule[est.leg + 1];
+  if (!start || !end || start.distance_m == null || end.distance_m == null) return null;
+  const metres = Number(end.distance_m) - Number(start.distance_m);
+  const started = start.departure ? new Date(start.departure).getTime() : NaN;
+  const ended = end.arrival ? new Date(end.arrival).getTime() : NaN;
+  const milliseconds = ended - started;
+  if (!(metres > 0) || !(milliseconds > 0)) return null;
+  const kmh = (metres / 1000) / (milliseconds / 3600000);
+  return Number.isFinite(kmh) && kmh >= 0 ? Math.min(300, kmh) : null;
+}
+
+function renderSpeedometer(est, now = Date.now()) {
+  const card = document.getElementById("speedCard");
+  if (!card) return;
+  const freshGps = state.user && state.gpsSpeed != null && now - state.speedUpdatedAt < 20000
+    ? state.gpsSpeed
+    : null;
+  const timetable = timetableLegSpeed(est);
+  if (!state.data && !state.user && freshGps == null) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  let value = 0;
+  let mode = "stopped";
+  let source = t("speed.stopped");
+  let secondary = "";
+  if (freshGps != null) {
+    value = freshGps;
+    mode = "gps";
+    source = t("speed.gps");
+    if (timetable != null) {
+      secondary = t("speed.timetableValue", { value: Math.round(timetable) });
+    }
+  } else if (state.user) {
+    value = null;
+    mode = "gps";
+    source = t("speed.waiting");
+    if (timetable != null) {
+      secondary = t("speed.timetableValue", { value: Math.round(timetable) });
+    }
+  } else if (state.data) {
+    if (timetable != null) {
+      value = timetable;
+      mode = "estimate";
+      source = t("speed.timetable");
+    }
+    secondary = t("speed.enableGps");
+  } else {
+    card.hidden = true;
+    return;
+  }
+
+  document.getElementById("speedValue").textContent = value == null ? "—" : String(Math.round(value));
+  document.getElementById("speedFill").style.width =
+    value == null ? "0%" : `${Math.min(100, Math.max(0, value / 200 * 100)).toFixed(1)}%`;
+  document.getElementById("speedSource").textContent = source;
+  document.getElementById("speedSecondary").textContent = secondary;
+  const badge = document.getElementById("speedModeBadge");
+  badge.textContent = mode === "gps" ? "GPS" : mode === "estimate" ? t("speed.estimate") : t("speed.stopped");
+  badge.className = "badge " + (mode === "gps" ? "live" : mode === "estimate" ? "unofficial" : "");
+}
+
 function updateJourneyProgress(est) {
   const fill = document.getElementById("progressFill");
   const pct = document.getElementById("progressPct");
@@ -2929,6 +3043,7 @@ function tick() {
   if (clock) clock.textContent = moroccoClock(now);
   const est = scheduledAt(now);
   updateJourneyProgress(est);
+  renderSpeedometer(est, now);
   updateRouteProgress(est);
 
   const badge = document.getElementById("progressBadge");
@@ -4509,6 +4624,7 @@ function refreshLocalizedUi() {
     if (summary) summary.textContent = t("search.noTrainSelected");
   }
 
+  renderSpeedometer(scheduledAt(Date.now()), Date.now());
   if (state.data) {
     renderTimezoneNote();
     renderJourneyMeta();

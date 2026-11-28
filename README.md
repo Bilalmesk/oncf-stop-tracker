@@ -27,6 +27,8 @@ a separate private repository.
   persists across reloads, and offers the mode when GPS finds you at the origin.
 - **Direct destinations** — every city reachable from the current origin without
   changing trains, computed from the existing GTFS feed.
+- **Speed card** — live GPS speed when the device reports it, otherwise the
+  timetable average for the current leg, explicitly labelled as an estimate.
 - **Observed punctuality** — local on-time/delay KPIs from the live boards this
   installation has actually seen.
 - **Community reports** — travellers can report a cancellation or departure
