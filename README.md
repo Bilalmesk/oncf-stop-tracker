@@ -21,6 +21,10 @@ a separate private repository.
   Map** toolbar.
 - **Live station departures** — real departure times, delay minutes and delay
   level, refreshed every 60 seconds.
+- **Where is it now?** — timetable-based position estimate with the current leg,
+  delay shift and a clear “not GPS” label.
+- **Community reports** — travellers can report a cancellation or departure
+  delay, confirm/dispute others, all marked unverified.
 - **Journey planner** — city or station autocomplete, popular routes, nearest
   station, recent routes, direct-train preselection.
 - **Selected trip ribbon** — white/amber glowing route, animated direction
@@ -46,6 +50,49 @@ The sidebar card:
 
 This is a **station board**, not a train GPS feed. The app never claims a live
 position between stations.
+
+## Where is it now?
+
+For a loaded journey, the **Where is it now?** card estimates the current
+position from the published timetable and route shape:
+
+- **Not departed — Casa Voyageurs**
+- **At Fès**
+- **En route: Fès → Meknès**
+- **Arrived at Oujda**
+
+A live station board can supply the actual departure delay at the origin; after
+the train has left, community delay reports can shift the estimate. The card
+shows the progress, the current/next station, the applied delay and its source.
+Every value is labelled **Timetable estimate** — ONCF publishes no train
+positions. The API endpoint is:
+
+```text
+GET /api/trip-status?train=MA&from=200&to=490&date=2026-11-27
+```
+
+## Community reports
+
+The **Report a problem** button opens a native dialog for:
+
+- **Departure delay** (minutes),
+- **Cancellation**,
+- **Other**.
+
+Reports are stored locally in `data/reports/reports.json` (not committed), shown
+next to the trip, and can be **confirmed** or **disputed** by other users. They
+are explicitly **unverified community observations**, not official ONCF
+cancellations. The API is:
+
+```text
+GET  /api/reports?train=MA&date=2026-11-27
+POST /api/reports
+POST /api/reports/{id}/vote
+```
+
+A cancellation report adds an advisory but does not overwrite the timetable
+status. A delay report shifts the estimate and is labelled `community`; a live
+board delay takes precedence when the train is still at the origin.
 
 ## Install and run
 
@@ -127,9 +174,10 @@ See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
 python -m pytest -q
 ```
 
-100 tests cover stop calculations, timezone quirks, GTFS, live departure
-parsing/caching, route-shape fallback, works notices and source health. Tests
-that require official fixtures skip automatically when the fixtures are absent.
+127 tests cover stop calculations, timezone quirks, GTFS, live departure
+parsing/caching, route-shape fallback, works notices, trip status, community
+reports, the local API contract and source health. Tests that require official
+fixtures skip automatically when the fixtures are absent.
 
 ## Project layout
 
@@ -139,6 +187,9 @@ oncf/
   mobile.py         live station departures + 45 s cache
   traffic.py        works/service notices
   sources.py        gateway health checks
+  tracker.py        scheduled progress interpolation
+  trip_status.py    where-is-it-now estimator + delay shift
+  reports.py        local community reports store
   live.py           local HTTP server + UI
   web/              MapLibre/Leaflet map, live panel, Night style
 docs/

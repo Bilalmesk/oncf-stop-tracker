@@ -241,6 +241,39 @@
     border-top: 1px solid var(--line); position: sticky; bottom: 0; background: var(--panel); }
   .dialog-actions .err { color: #ffb4ad; font-size: 12px; flex: 1; }
 
+  /* native report dialog — dialog provides focus/top-layer/Esc semantics */
+  dialog.report-dialog {
+    width: min(480px, 100%); max-height: 92vh; overflow-y: auto;
+    background: var(--panel); color: var(--text); border: 1px solid #2f3b4d;
+    border-radius: 18px; padding: 0; box-shadow: 0 30px 80px rgba(0,0,0,.55);
+  }
+  dialog.report-dialog::backdrop { background: rgba(4,7,11,.72); backdrop-filter: blur(3px); }
+  dialog.report-dialog:modal { overscroll-behavior: contain; }
+  dialog.report-dialog::backdrop { overscroll-behavior: contain; }
+  .report-dialog .dialog-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 13px; }
+  .report-dialog input, .report-dialog select, .report-dialog textarea {
+    width: 100%; background: #0f151d; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 10px; color: var(--text); font: inherit;
+  }
+  .report-dialog textarea { min-height: 82px; resize: vertical; }
+  .report-dialog input:focus-visible, .report-dialog select:focus-visible,
+  .report-dialog textarea:focus-visible {
+    outline: 3px solid rgba(240,160,42,.35); outline-offset: 1px; border-color: var(--amber);
+  }
+  .report-dialog input:user-invalid, .report-dialog select:user-invalid,
+  .report-dialog textarea:user-invalid { border-color: #ff7b72; }
+  .form-error { color: #ffb4ad; font-size: 12px; margin: 0; }
+  .form-error[hidden] { display: none; }
+  .report-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .report-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .report-item { border: 1px solid var(--line); border-radius: 10px; padding: 8px 9px; background: #0f151d; }
+  .report-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .report-title { font-size: 12px; font-weight: 600; }
+  .report-meta { color: var(--muted); font-size: 10px; white-space: nowrap; }
+  .report-msg { font-size: 11px; margin-top: 3px; color: var(--text); }
+  .report-votes { display: flex; gap: 8px; margin-top: 5px; }
+  .report-votes .link-btn { font-size: 11px; }
+
   .route-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 8px; align-items: end; }
   .route-row.two-col { grid-template-columns: 1fr 1fr; }
   .swap-btn { height: 38px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line);
@@ -574,6 +607,26 @@
           <div class="row small muted"><span id="progressWhere">—</span><span id="refreshedAt">—</span></div>
         </div>
 
+        <div class="card" id="tripStatusCard" hidden>
+          <h3>Where is it now? <span class="badge unofficial">Timetable estimate</span></h3>
+          <div class="row"><span id="tripStatusLine" class="big" style="font-size:18px">—</span></div>
+          <div class="row small muted"><span id="tripStatusWhere">—</span><span id="tripStatusDelay"></span></div>
+          <div class="progress" style="margin-top:8px"><div class="progress-fill" id="tripStatusFill"></div></div>
+          <div class="row small muted">
+            <span id="tripStatusMeta"></span>
+            <button class="link-btn" id="tripStatusRefresh" type="button">Refresh</button>
+          </div>
+          <div id="tripStatusAdvisory" class="trip-notice" hidden></div>
+          <div class="report-actions">
+            <button class="btn small primary" id="reportOpenBtn" type="button">Report a problem</button>
+            <span class="small muted">Community reports are unverified.</span>
+          </div>
+          <div id="reportList" class="report-list"></div>
+          <div class="small muted" style="margin-top:6px">
+            This is a timetable estimate, not GPS. ONCF publishes no train positions.
+          </div>
+        </div>
+
         <div class="card" id="stopsCard" hidden>
           <h3>Stops <span class="muted small" id="stopCount"></span></h3>
           <div id="tripNotice" class="trip-notice" hidden></div>
@@ -651,6 +704,55 @@
     </aside>
   </main>
 </div>
+
+<!-- ------------------------- report dialog ------------------------- -->
+<dialog id="reportDialog" class="report-dialog" aria-labelledby="reportTitle">
+  <form id="reportForm">
+    <div class="dialog-head">
+      <h2 id="reportTitle">Report a problem</h2>
+      <button class="btn ghost small" id="reportCloseBtn" type="button">Close</button>
+    </div>
+    <div class="dialog-body">
+      <p class="small muted" style="margin:0">
+        Tell other travellers what you see at the station. This is a community
+        report, not an official ONCF message.
+      </p>
+      <div class="field">
+        <label for="reportKind">What happened?</label>
+        <select id="reportKind" name="kind" required autofocus>
+          <option value="departure_delay">Departure delay</option>
+          <option value="cancellation">Cancellation</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="reportTrain">Train</label>
+        <input id="reportTrain" name="train" type="text" required maxlength="24"
+               autocapitalize="characters" autocorrect="off" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="reportStation">Station</label>
+        <select id="reportStation" name="station"></select>
+      </div>
+      <div class="field" id="reportMinutesField">
+        <label for="reportMinutes">Delay (minutes)</label>
+        <input id="reportMinutes" name="minutes" type="number" min="1" max="600"
+               inputmode="numeric" />
+      </div>
+      <div class="field">
+        <label for="reportMessage">Message (optional)</label>
+        <textarea id="reportMessage" name="message" maxlength="280"
+                  placeholder="e.g. boarding has not started, platform change…"></textarea>
+      </div>
+      <input id="reportDate" name="date" type="hidden" />
+      <p id="reportError" class="form-error" role="alert" tabindex="-1" hidden></p>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn ghost" id="reportCancel" type="button">Cancel</button>
+      <button class="btn primary" id="reportSubmit" type="submit">Send report</button>
+    </div>
+  </form>
+</dialog>
 
 <!-- ------------------------- search dialog ------------------------- -->
 <div class="overlay" id="searchOverlay">
@@ -735,6 +837,8 @@ const state = {
   verifying: false,
   journeyToken: 0,
   trafficNotices: [],
+  tripStatus: null,
+  tripStatusLoading: false,
 };
 
 /* ------------------------------------------------------------------ */
@@ -2903,6 +3007,7 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
       loadDepartures();
     }
     maybeAutoVerify();
+    loadTripStatus();
   } catch (e) {
     err.textContent = "Error: " + e.message;
     openSearch();
@@ -2910,8 +3015,284 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Comboboxes                                                         */
+/* Live trip status + community reports                               */
 /* ------------------------------------------------------------------ */
+
+const REPORT_KIND_LABELS = {
+  cancellation: "Cancellation",
+  departure_delay: "Departure delay",
+  other: "Other",
+};
+
+function currentTripQuery() {
+  const data = state.data;
+  if (!data || !data.journey || !Array.isArray(data.stops) || !data.stops.length) return null;
+  const segment = data.segment || {};
+  return {
+    train: data.journey.service_label,
+    from: segment.from?.code || data.stops[0].code,
+    to: segment.to?.code || data.stops[data.stops.length - 1].code,
+    date: data.journey.travel_date,
+  };
+}
+
+async function loadTripStatus(force = false) {
+  const q = currentTripQuery();
+  if (!q || state.tripStatusLoading) return;
+  state.tripStatusLoading = true;
+  try {
+    const params = new URLSearchParams({ ...q, live: "1" });
+    const json = await fetchJson("/api/trip-status?" + params.toString());
+    state.tripStatus = json;
+    renderTripStatus(json);
+    await loadReports();
+  } catch (e) {
+    const card = document.getElementById("tripStatusCard");
+    if (card) card.hidden = false;
+    const line = document.getElementById("tripStatusLine");
+    if (line) line.textContent = "Trip status unavailable";
+    const where = document.getElementById("tripStatusWhere");
+    if (where) where.textContent = e.message || "";
+  } finally {
+    state.tripStatusLoading = false;
+  }
+}
+
+function renderTripStatus(status) {
+  const card = document.getElementById("tripStatusCard");
+  if (!card || !status) return;
+  card.hidden = false;
+
+  const line = document.getElementById("tripStatusLine");
+  const where = document.getElementById("tripStatusWhere");
+  const delay = document.getElementById("tripStatusDelay");
+  const fill = document.getElementById("tripStatusFill");
+  const meta = document.getElementById("tripStatusMeta");
+  const advisory = document.getElementById("tripStatusAdvisory");
+
+  line.textContent = status.status_label || "—";
+  if (status.station) {
+    where.textContent = "At " + (status.station.name || status.station.code);
+  } else if (status.leg) {
+    where.textContent = `${status.leg.from.name} → ${status.leg.to.name}`;
+  } else if (status.next_station) {
+    where.textContent = "Next: " + status.next_station.name;
+  } else {
+    where.textContent = "";
+  }
+
+  const minutes = Number(status.delay_minutes || 0);
+  if (minutes > 0) {
+    const source = status.delay_source === "live_board" ? "live board"
+      : status.delay_source === "community" ? "community report" : "estimate";
+    delay.textContent = `+${minutes} min · ${source}`;
+  } else {
+    delay.textContent = status.delay_source === "live_board" ? "Live board: on time" : "No reported delay";
+  }
+
+  const pct = Number.isFinite(status.fraction) ? Math.round(status.fraction * 100) : null;
+  fill.style.width = pct == null ? "0%" : `${Math.max(0, Math.min(100, pct))}%`;
+  meta.textContent = pct == null
+    ? (status.as_of ? `Updated ${status.as_of.slice(11, 16)} UTC` : "")
+    : `${pct}% · updated ${status.as_of ? status.as_of.slice(11, 16) : "—"} UTC`;
+
+  const notices = status.advisories || [];
+  if (notices.length) {
+    advisory.hidden = false;
+    advisory.textContent = notices.map(n => n.message).join(" ");
+  } else {
+    advisory.hidden = true;
+    advisory.textContent = "";
+  }
+}
+
+async function loadReports() {
+  const q = currentTripQuery();
+  if (!q) return;
+  try {
+    const params = new URLSearchParams({ train: q.train, date: q.date });
+    const data = await fetchJson("/api/reports?" + params.toString());
+    renderReports(data.reports || []);
+  } catch (_) {
+    const list = document.getElementById("reportList");
+    if (list) list.textContent = "";
+  }
+}
+
+function renderReports(reports) {
+  const list = document.getElementById("reportList");
+  if (!list) return;
+  list.replaceChildren();
+  if (!reports.length) {
+    const empty = document.createElement("div");
+    empty.className = "small muted";
+    empty.textContent = "No community reports for this trip yet.";
+    list.append(empty);
+    return;
+  }
+  for (const report of reports) {
+    const item = document.createElement("div");
+    item.className = "report-item";
+
+    const head = document.createElement("div");
+    head.className = "report-head";
+    const title = document.createElement("span");
+    title.className = "report-title";
+    title.textContent = REPORT_KIND_LABELS[report.kind] || "Report";
+    const meta = document.createElement("span");
+    meta.className = "report-meta";
+    const bits = [];
+    if (report.station) {
+      const stop = (state.stops || []).find(s => s.code === report.station);
+      bits.push(stop?.name?.fr || report.station);
+    }
+    if (report.age_minutes != null) bits.push(`${report.age_minutes} min ago`);
+    meta.textContent = bits.join(" · ");
+    head.append(title, meta);
+    item.append(head);
+
+    if (report.message) {
+      const message = document.createElement("div");
+      message.className = "report-msg";
+      message.textContent = report.message;
+      item.append(message);
+    }
+
+    const votes = document.createElement("div");
+    votes.className = "report-votes";
+    const score = document.createElement("span");
+    score.className = "small muted";
+    score.textContent = `${report.confirmations || 0} confirm · ${report.disputes || 0} dispute`;
+    const confirm = document.createElement("button");
+    confirm.type = "button";
+    confirm.className = "link-btn";
+    confirm.textContent = "Confirm";
+    confirm.addEventListener("click", () => voteReport(report.id, "confirm"));
+    const dispute = document.createElement("button");
+    dispute.type = "button";
+    dispute.className = "link-btn";
+    dispute.textContent = "Dispute";
+    dispute.addEventListener("click", () => voteReport(report.id, "dispute"));
+    votes.append(score, confirm, dispute);
+    item.append(votes);
+    list.append(item);
+  }
+}
+
+async function voteReport(id, vote) {
+  try {
+    const response = await fetch(`/api/reports/${encodeURIComponent(id)}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vote }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    await loadReports();
+    await loadTripStatus(true);
+  } catch (e) {
+    showBanner("Could not record vote: " + e.message, 4000);
+  }
+}
+
+function syncReportKind() {
+  const kind = document.getElementById("reportKind")?.value;
+  const field = document.getElementById("reportMinutesField");
+  const minutes = document.getElementById("reportMinutes");
+  const isDelay = kind === "departure_delay";
+  field.hidden = !isDelay;
+  minutes.required = isDelay;
+  if (!isDelay) minutes.value = "";
+  minutes.setCustomValidity("");
+}
+
+function openReportDialog() {
+  const q = currentTripQuery();
+  if (!q) return;
+  const form = document.getElementById("reportForm");
+  const error = document.getElementById("reportError");
+  form.reset();
+  error.hidden = true;
+  error.textContent = "";
+  document.getElementById("reportTrain").value = q.train;
+  document.getElementById("reportDate").value = q.date;
+  document.getElementById("reportKind").value = "departure_delay";
+
+  const station = document.getElementById("reportStation");
+  station.replaceChildren();
+  for (const stop of state.stops || []) {
+    const option = document.createElement("option");
+    option.value = stop.code;
+    option.textContent = stop.name?.fr || stop.code;
+    station.append(option);
+  }
+  const selected = state.tripStatus?.station?.code
+    || state.tripStatus?.next_station?.code
+    || q.from;
+  if (selected && [...station.options].some(o => o.value === selected)) {
+    station.value = selected;
+  }
+  syncReportKind();
+  document.getElementById("reportDialog").showModal();
+}
+
+function closeReportDialog() {
+  document.getElementById("reportDialog").close();
+}
+
+async function submitReport(event) {
+  event.preventDefault();
+  const form = document.getElementById("reportForm");
+  const error = document.getElementById("reportError");
+  error.hidden = true;
+  error.textContent = "";
+  if (!form.reportValidity()) return;
+
+  const kind = document.getElementById("reportKind").value;
+  const minutes = kind === "departure_delay"
+    ? Number(document.getElementById("reportMinutes").value)
+    : null;
+  if (kind === "departure_delay" && (!Number.isInteger(minutes) || minutes < 1 || minutes > 600)) {
+    const input = document.getElementById("reportMinutes");
+    input.setCustomValidity("Enter a delay between 1 and 600 minutes.");
+    input.reportValidity();
+    input.setCustomValidity("");
+    return;
+  }
+
+  const payload = {
+    kind,
+    train: document.getElementById("reportTrain").value.trim(),
+    station: document.getElementById("reportStation").value || null,
+    date: document.getElementById("reportDate").value || null,
+    minutes,
+    message: document.getElementById("reportMessage").value.trim(),
+  };
+
+  const submit = document.getElementById("reportSubmit");
+  submit.disabled = true;
+  try {
+    const response = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    closeReportDialog();
+    showBanner("Report sent. It is visible to other users as unverified.", 5000);
+    await loadReports();
+    await loadTripStatus(true);
+  } catch (e) {
+    error.hidden = false;
+    error.textContent = e.message;
+    error.focus();
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+
 const placeOptions = async (term) => {
   const data = await fetchJson(`/api/places?q=${encodeURIComponent(term || "")}`);
   return (data.places || []).map(p => p.type === "city"
@@ -3546,6 +3927,17 @@ setInterval(animateTrain, 250);
 setInterval(() => {
   if (!document.hidden && departuresStation) loadDepartures({ silent: true });
 }, 60000);
+setInterval(() => {
+  if (!document.hidden && state.data) loadTripStatus();
+}, 30000);
+
+document.getElementById("reportOpenBtn").addEventListener("click", openReportDialog);
+document.getElementById("reportCloseBtn").addEventListener("click", closeReportDialog);
+document.getElementById("reportCancel").addEventListener("click", closeReportDialog);
+document.getElementById("reportKind").addEventListener("change", syncReportKind);
+document.getElementById("reportForm").addEventListener("submit", submitReport);
+document.getElementById("tripStatusRefresh").addEventListener("click", () => loadTripStatus(true));
+
 animateTrain();
 </script>
 </body>

@@ -47,11 +47,13 @@ from .grid_refresh import read_status
 from .mobile import LiveDeparturesService, MobileOncfClient
 from .models import Journey
 from .repository import Repository, trim_to_segment
+from .reports import ReportRateLimited, ReportStore
 from .stations import StationCatalog
 from .sources import SourceStatusService
 from .timeutil import TZ, format_time
 from .tracker import ScheduledProgress
 from .traffic import NOTICE_NOTE, SOURCE_NAME, SOURCE_URL, TrafficService
+from .trip_status import estimate_trip_status
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -192,6 +194,9 @@ class LiveApp:
         self.mobile_client = None if offline else MobileOncfClient(min_interval=min_interval, base=ONCF_MOBILE_BASE)
         self.departures_service = LiveDeparturesService(self.mobile_client, self.catalog)
         self.source_status = SourceStatusService()
+        self.reports = ReportStore()
+        self._report_lock = threading.Lock()
+        self._report_last_by_ip: dict[str, float] = {}
 
     def sources(self, refresh: bool = False) -> dict:
         """Plain gateway liveness checks; read-only."""
@@ -351,15 +356,15 @@ class LiveApp:
 
         return {"routes": routes, "stations": stations, "cities": cities}
 
-    def journey(
+    def _journey_model(
         self,
         train: str,
         origin: str,
         destination: str,
         travel_date: date,
-        official_station: str | None,
+        official_station: str | None = None,
         verify_all: bool = False,
-    ) -> dict:
+    ) -> tuple[Journey, list[tuple[float, float]], str]:
         origin_codes, origin_label = self._expand(origin)
         destination_codes, destination_label = self._expand(destination)
         full = self.repo.journey_between_sets(train, origin_codes, destination_codes, travel_date)
@@ -413,12 +418,155 @@ class LiveApp:
                 if len(fallback) > len(shape):
                     shape = fallback
                     shape_source = "route"
+        return trimmed, shape, shape_source
+
+    def journey(
+        self,
+        train: str,
+        origin: str,
+        destination: str,
+        travel_date: date,
+        official_station: str | None,
+        verify_all: bool = False,
+    ) -> dict:
+        trimmed, shape, shape_source = self._journey_model(
+            train, origin, destination, travel_date, official_station, verify_all
+        )
         return journey_payload(
             trimmed,
             shape,
             segment=(trimmed.stops[0], trimmed.stops[-1]),
             shape_source=shape_source,
         )
+
+    def trip_status(
+        self,
+        train: str,
+        origin: str,
+        destination: str,
+        travel_date: date,
+        *,
+        live: bool = True,
+        now: datetime | None = None,
+    ) -> dict:
+        """Where should this train be now, using timetable + optional live board.
+
+        This is still an **estimate**. The live board can supply an actual
+        departure delay at the origin; community reports can supply a delay when
+        the train has already left and is no longer on the board.
+        """
+        trimmed, shape, shape_source = self._journey_model(
+            train, origin, destination, travel_date
+        )
+        moment = now or datetime.now(tz=TZ)
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=TZ)
+        reports = self.reports.active_for_trip(train, travel_date.isoformat())
+        delay_minutes, delay_source = self.reports.delay_for_trip(
+            train, travel_date.isoformat()
+        )
+
+        # A live board only describes today's station. Never apply it to a
+        # historical/future date.
+        if live and self.departures_service.client is not None and travel_date == moment.date():
+            try:
+                board = self.departures_service.get(trimmed.stops[0].station.code)
+                if not board.get("stale"):
+                    for departure in board.get("departures", []):
+                        if str(departure.get("train")) == str(train):
+                            delay_minutes = int(departure.get("delay_minutes") or 0)
+                            delay_source = "live_board"
+                            break
+            except Exception:
+                pass
+
+        payload = estimate_trip_status(
+            trimmed,
+            shape,
+            moment,
+            delay_minutes=delay_minutes,
+            delay_source=delay_source,
+        )
+        payload.update(
+            {
+                "train": str(train),
+                "date": travel_date.isoformat(),
+                "from": {
+                    "code": trimmed.stops[0].station.code,
+                    "name": trimmed.stops[0].station.name_fr,
+                },
+                "to": {
+                    "code": trimmed.stops[-1].station.code,
+                    "name": trimmed.stops[-1].station.name_fr,
+                },
+                "shape_source": shape_source,
+                "reports": reports,
+                "advisories": [],
+            }
+        )
+        cancellations = [item for item in reports if item.get("kind") == "cancellation"]
+        if cancellations:
+            payload["advisories"].append(
+                {
+                    "kind": "cancellation",
+                    "count": len(cancellations),
+                    "message": (
+                        "Community reports this train as cancelled. "
+                        "This is not an official ONCF cancellation."
+                    ),
+                }
+            )
+        if delay_source == "community":
+            payload["advisories"].append(
+                {
+                    "kind": "departure_delay",
+                    "count": len(
+                        [item for item in reports if item.get("kind") == "departure_delay"]
+                    ),
+                    "message": "Departure delay reported by the community; unverified.",
+                }
+            )
+        return payload
+
+    def list_reports(
+        self,
+        *,
+        train: str | None = None,
+        station: str | None = None,
+        date: str | None = None,
+        active_only: bool = True,
+    ) -> dict:
+        return {
+            "reports": self.reports.list(
+                train=train,
+                station=station,
+                date=date,
+                active_only=active_only,
+            )
+        }
+
+    def add_report(self, payload: dict, client_ip: str = "local") -> dict:
+        if not isinstance(payload, dict):
+            raise ValueError("report body must be a JSON object")
+        now = time.monotonic()
+        with self._report_lock:
+            last = self._report_last_by_ip.get(client_ip)
+            if last is not None and now - last < 15:
+                raise ReportRateLimited("Please wait before sending another report.")
+        report = self.reports.add(
+            kind=str(payload.get("kind") or ""),
+            train=str(payload.get("train") or ""),
+            station=payload.get("station"),
+            date=payload.get("date"),
+            minutes=payload.get("minutes"),
+            message=str(payload.get("message") or ""),
+        )
+        with self._report_lock:
+            self._report_last_by_ip[client_ip] = time.monotonic()
+        return report
+
+    def vote_report(self, report_id: str, vote: str) -> dict:
+        return self.reports.vote(report_id, vote)
 
     def services(self, origin: str, destination: str, travel_date: date) -> dict:
         """Parsed service list used to autofill the train field."""
@@ -646,6 +794,50 @@ def make_handler(app: LiveApp):
                 started = app.start_grid_refresh(force=True)
                 self._send_json({"started": started, "status": app.grids_status()})
                 return
+            if parsed.path == "/api/trip-status":
+                train = (query.get("train") or [""])[0]
+                origin = (query.get("from") or [""])[0]
+                destination = (query.get("to") or [""])[0]
+                if not (train and origin and destination):
+                    self._send_json(
+                        {"error": "train, from and to are required"}, 400
+                    )
+                    return
+                try:
+                    travel_date = date.fromisoformat(
+                        (query.get("date") or [date.today().isoformat()])[0]
+                    )
+                    payload = app.trip_status(
+                        train=train,
+                        origin=origin,
+                        destination=destination,
+                        travel_date=travel_date,
+                        live=(query.get("live") or ["1"])[0].lower()
+                        in {"1", "true", "yes"},
+                    )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
+                except KeyError as exc:
+                    self._send_json({"error": str(exc.args[0] if exc.args else exc)}, 404)
+                except Exception as exc:  # keep the UI alive on source failures
+                    self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
+                else:
+                    self._send_json(payload)
+                return
+            if parsed.path == "/api/reports":
+                try:
+                    payload = app.list_reports(
+                        train=(query.get("train") or [None])[0],
+                        station=(query.get("station") or [None])[0],
+                        date=(query.get("date") or [None])[0],
+                        active_only=(query.get("active") or ["1"])[0].lower()
+                        in {"1", "true", "yes"},
+                    )
+                except Exception as exc:
+                    self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
+                else:
+                    self._send_json(payload)
+                return
             if parsed.path == "/api/journey":
                 try:
                     travel_date = date.fromisoformat((query.get("date") or [date.today().isoformat()])[0])
@@ -665,6 +857,70 @@ def make_handler(app: LiveApp):
                     self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
                 else:
                     self._send_json(payload)
+                return
+
+            self.send_error(HTTPStatus.NOT_FOUND)
+
+        def _read_json(self) -> dict:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError as exc:
+                raise ValueError("invalid Content-Length") from exc
+            if length > 16_384:
+                raise OverflowError("request body is too large")
+            raw = self.rfile.read(length) if length else b""
+            if not raw:
+                return {}
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, ValueError) as exc:
+                raise ValueError("invalid JSON body") from exc
+            if not isinstance(payload, dict):
+                raise ValueError("JSON body must be an object")
+            return payload
+
+        def do_POST(self) -> None:  # noqa: N802 (stdlib naming)
+            parsed = urlparse(self.path)
+            try:
+                payload = self._read_json()
+            except OverflowError as exc:
+                self._send_json({"error": str(exc)}, 413)
+                return
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, 400)
+                return
+
+            if parsed.path == "/api/reports":
+                try:
+                    report = app.add_report(payload, self.client_address[0])
+                except ReportRateLimited as exc:
+                    self._send_json({"error": str(exc)}, 429)
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 422)
+                except KeyError as exc:
+                    self._send_json({"error": str(exc.args[0] if exc.args else exc)}, 404)
+                except Exception as exc:
+                    self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
+                else:
+                    self._send_json(report, 201)
+                return
+
+            prefix, suffix = "/api/reports/", "/vote"
+            if parsed.path.startswith(prefix) and parsed.path.endswith(suffix):
+                report_id = parsed.path[len(prefix) : -len(suffix)].strip("/")
+                if not report_id:
+                    self._send_json({"error": "report id is required"}, 400)
+                    return
+                try:
+                    report = app.vote_report(report_id, str(payload.get("vote") or ""))
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 422)
+                except KeyError as exc:
+                    self._send_json({"error": str(exc.args[0] if exc.args else exc)}, 404)
+                except Exception as exc:
+                    self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
+                else:
+                    self._send_json(report)
                 return
 
             self.send_error(HTTPStatus.NOT_FOUND)
