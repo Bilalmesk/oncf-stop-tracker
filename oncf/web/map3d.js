@@ -300,7 +300,9 @@
   }
 
   function installOverlays() {
-    if (!map || installed || map.getSource("oncf-morocco")) return;
+    // A style swap clears every custom source. Never trust `installed` across
+    // styles: re-check the live style and reinstall when the source is gone.
+    if (!map || map.getSource("oncf-morocco")) return;
     map.addSource("oncf-morocco", { type: "geojson", data: "/morocco.geojson" });
     map.addSource("oncf-net-routes", { type: "geojson", data: empty });
     map.addSource("oncf-net-stations", { type: "geojson", data: empty });
@@ -809,6 +811,7 @@
     map.on("moveend", updateCityMarkers);
     map.on("style.load", () => {
       ready = true;
+      installed = false; // the new style cleared all custom layers/sources
       onStyleReady();
     });
     // Some browsers/cached styles finish before the style.load listener is
