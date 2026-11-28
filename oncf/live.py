@@ -48,6 +48,7 @@ from .mobile import LiveDeparturesService, MobileOncfClient
 from .models import Journey
 from .repository import Repository, trim_to_segment
 from .reports import ReportRateLimited, ReportStore
+from .punctuality import PunctualityLog
 from .stations import StationCatalog
 from .sources import SourceStatusService
 from .timeutil import TZ, format_time
@@ -197,6 +198,7 @@ class LiveApp:
         self.reports = ReportStore()
         self._report_lock = threading.Lock()
         self._report_last_by_ip: dict[str, float] = {}
+        self.punctuality = PunctualityLog()
 
     def sources(self, refresh: bool = False) -> dict:
         """Plain gateway liveness checks; read-only."""
@@ -293,7 +295,23 @@ class LiveApp:
                 raise
             codes = ", ".join(city.station_codes[:8])
             raise KeyError(f"{text!r} is a city; choose one of its stations: {codes}") from None
-        return self.departures_service.get(resolved.code, refresh=refresh)
+        payload = self.departures_service.get(resolved.code, refresh=refresh)
+        if not payload.get("stale") and not payload.get("error"):
+            observed_at = None
+            if payload.get("fetched_at"):
+                try:
+                    observed_at = datetime.fromisoformat(payload["fetched_at"])
+                except ValueError:
+                    observed_at = None
+            self.punctuality.record(
+                resolved.code,
+                payload.get("departures") or [],
+                observed_at=observed_at,
+            )
+        return payload
+
+    def punctuality_summary(self, days: int = 7) -> dict:
+        return self.punctuality.summary(days=days)
 
     def _expand(self, value: str) -> tuple[list[str], str]:
         """Resolve a city (`c:33`) or a station into station codes + label."""
@@ -438,6 +456,54 @@ class LiveApp:
             segment=(trimmed.stops[0], trimmed.stops[-1]),
             shape_source=shape_source,
         )
+
+    def destinations(
+        self,
+        station: str,
+        travel_date: date,
+        *,
+        limit: int = 60,
+    ) -> dict:
+        """Direct destinations reachable from one station, from GTFS only."""
+        text = (station or "").strip()
+        if not text:
+            raise KeyError("station is required")
+        after = datetime.now(tz=TZ) if travel_date == datetime.now(tz=TZ).date() else None
+        limit = max(1, min(100, int(limit or 60)))
+        if text.startswith("c:"):
+            city = self.cities.get(text)
+            codes = list(city.station_codes)
+            label = city.name_fr
+            code = text
+        else:
+            resolved = self.catalog.resolve(text)
+            codes = [resolved.code]
+            label = resolved.name_fr
+            code = resolved.code
+
+        merged: dict[str, dict] = {}
+        if self.gtfs is not None:
+            for item_code in codes:
+                for item in self.gtfs.direct_destinations(
+                    item_code, travel_date, after=after, limit=limit
+                ):
+                    current = merged.get(item["code"])
+                    if current is None or item["departure"] < current["departure"]:
+                        merged[item["code"]] = item
+        destinations = sorted(merged.values(), key=lambda item: item["departure"])[:limit]
+        for item in destinations:
+            for key in ("departure", "arrival"):
+                if item.get(key):
+                    try:
+                        item[f"{key}_time"] = format_time(datetime.fromisoformat(item[key]))
+                    except ValueError:
+                        item[f"{key}_time"] = None
+        return {
+            "station": {"code": code, "name": label},
+            "date": travel_date.isoformat(),
+            "destinations": destinations,
+            "source": "oncf-gtfs-unofficial (ODbL)",
+        }
 
     def trip_status(
         self,
@@ -682,6 +748,16 @@ def make_handler(app: LiveApp):
                 else:
                     self._send_json(payload)
                 return
+            if parsed.path == "/api/punctuality":
+                try:
+                    days = int((query.get("days") or ["7"])[0])
+                except ValueError:
+                    days = 7
+                try:
+                    self._send_json(app.punctuality_summary(days=days))
+                except Exception as exc:
+                    self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
+                return
             if parsed.path == "/api/sources":
                 refresh = (query.get("refresh") or ["0"])[0] in {"1", "true", "yes"}
                 self._send_json(app.sources(refresh=refresh))
@@ -793,6 +869,29 @@ def make_handler(app: LiveApp):
             if parsed.path == "/api/grids/refresh":
                 started = app.start_grid_refresh(force=True)
                 self._send_json({"started": started, "status": app.grids_status()})
+                return
+            if parsed.path == "/api/destinations":
+                try:
+                    travel_date = date.fromisoformat(
+                        (query.get("date") or [date.today().isoformat()])[0]
+                    )
+                    try:
+                        limit = int((query.get("limit") or ["60"])[0])
+                    except ValueError:
+                        limit = 60
+                    payload = app.destinations(
+                        station=(query.get("station") or [""])[0],
+                        travel_date=travel_date,
+                        limit=limit,
+                    )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
+                except KeyError as exc:
+                    self._send_json({"error": str(exc.args[0] if exc.args else exc)}, 404)
+                except Exception as exc:
+                    self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
+                else:
+                    self._send_json(payload)
                 return
             if parsed.path == "/api/trip-status":
                 train = (query.get("train") or [""])[0]

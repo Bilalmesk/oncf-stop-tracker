@@ -274,6 +274,14 @@
   .report-votes { display: flex; gap: 8px; margin-top: 5px; }
   .report-votes .link-btn { font-size: 11px; }
   #tripStatusCard.onboard { border-color: var(--amber); box-shadow: 0 0 0 1px rgba(240,160,42,.18); }
+  .dest-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 260px; overflow-y: auto; }
+  .dest-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+    background: #0f151d; border: 1px solid var(--line); border-radius: 10px; padding: 7px 8px;
+    color: var(--text); cursor: pointer; font: inherit; }
+  .dest-item:hover, .dest-item:focus-visible { border-color: var(--amber); }
+  .dest-name { font-weight: 600; font-size: 12px; }
+  .dest-meta { margin-left: auto; text-align: right; font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .dest-sub { font-size: 10px; color: var(--muted); }
 
   .route-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 8px; align-items: end; }
   .route-row.two-col { grid-template-columns: 1fr 1fr; }
@@ -634,6 +642,15 @@
           </div>
         </div>
 
+        <div class="card" id="destinationsCard" hidden>
+          <h3>Direct destinations <span class="muted small" id="destinationsFrom"></span></h3>
+          <div class="row small muted">
+            <span id="destinationsNote">From the current origin, no changes.</span>
+            <button class="link-btn" id="destinationsRefresh" type="button">Refresh</button>
+          </div>
+          <div id="destinationsList" class="dest-list"></div>
+        </div>
+
         <div class="card" id="stopsCard" hidden>
           <h3>Stops <span class="muted small" id="stopCount"></span></h3>
           <div id="tripNotice" class="trip-notice" hidden></div>
@@ -706,6 +723,17 @@
         <details class="card" id="sourcesCard">
           <summary>Data sources</summary>
           <div id="sourcesBody" class="sources-body small muted">Open to check source health.</div>
+          <div class="source-note" style="margin-top:8px">
+            Timetable data from
+            <a href="https://github.com/orhazal/oncf-gtfs-unofficial" target="_blank" rel="noopener noreferrer">oncf-gtfs-unofficial</a>
+            (ODbL), built from ONCF’s published timetables; station locations
+            © OpenStreetMap contributors.
+          </div>
+        </details>
+
+        <details class="card" id="punctualityCard">
+          <summary>Observed punctuality <span class="badge">local</span></summary>
+          <div id="punctualityBody" class="small muted">Collecting local observations…</div>
         </details>
       </div>
     </aside>
@@ -1434,6 +1462,7 @@ async function loadDepartures({ refresh = false, silent = false } = {}) {
     const data = await fetchJson(`/api/departures?station=${encodeURIComponent(station)}${refresh ? "&refresh=1" : ""}`);
     renderDepartures(data);
     departuresStation = data.station?.code || station;
+    loadPunctuality();
   } catch (error) {
     if (body) {
       body.innerHTML = "";
@@ -3024,6 +3053,7 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
     }
     maybeAutoVerify();
     loadTripStatus();
+    loadDestinations();
     updateOnboardUi();
     maybePromptOnboard();
     if (onboardTripMatchesCurrent()) setTimeout(onboardFocus, 800);
@@ -3471,6 +3501,105 @@ function followOnboard(est) {
     if (emap && emap.easeTo) {
       emap.easeTo({ center: [point[1], point[0]], duration: 800 });
     }
+  }
+}
+
+async function loadDestinations() {
+  const q = currentTripQuery();
+  if (!q || !state.data) return;
+  const origin = state.data.segment?.from?.code || state.stops[0]?.code;
+  if (!origin) return;
+  try {
+    const params = new URLSearchParams({ station: origin, date: q.date, limit: "40" });
+    const data = await fetchJson("/api/destinations?" + params.toString());
+    renderDestinations(data);
+  } catch (_) {
+    const card = document.getElementById("destinationsCard");
+    if (card) card.hidden = true;
+  }
+}
+
+function renderDestinations(data) {
+  const card = document.getElementById("destinationsCard");
+  const list = document.getElementById("destinationsList");
+  const from = document.getElementById("destinationsFrom");
+  const note = document.getElementById("destinationsNote");
+  if (!card || !list) return;
+  const items = data.destinations || [];
+  card.hidden = items.length === 0;
+  if (!items.length) return;
+  if (from) from.textContent = "from " + (data.station?.name || "");
+  if (note) {
+    note.textContent = `${items.length} direct destination${items.length === 1 ? "" : "s"} · no changes`;
+  }
+  list.replaceChildren();
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "dest-item";
+    button.title = `Open ${item.name} on train ${item.train}`;
+
+    const name = document.createElement("span");
+    name.className = "dest-name";
+    name.textContent = item.name || item.code;
+
+    const sub = document.createElement("span");
+    sub.className = "dest-sub";
+    sub.textContent = [
+      item.departure_time || "",
+      item.train ? `train ${item.train}` : "",
+      item.product || "",
+      item.duration_minutes != null ? `${item.duration_minutes} min` : "",
+    ].filter(Boolean).join(" · ");
+
+    const meta = document.createElement("span");
+    meta.className = "dest-meta";
+    meta.textContent = item.coach ? "coach" : "rail";
+    if (item.product_color) {
+      const dot = document.createElement("span");
+      dot.className = "departure-product";
+      dot.style.background = item.product_color;
+      meta.prepend(dot);
+    }
+
+    const text = document.createElement("span");
+    text.append(name, document.createElement("br"), sub);
+    button.append(text, meta);
+    button.addEventListener("click", () => {
+      loadJourney({
+        train: item.train,
+        from: data.station.code,
+        to: item.code,
+        date: data.date,
+        official: "",
+      });
+    });
+    list.append(button);
+  }
+}
+
+async function loadPunctuality() {
+  const body = document.getElementById("punctualityBody");
+  if (!body) return;
+  try {
+    const data = await fetchJson("/api/punctuality?days=7");
+    body.replaceChildren();
+    if (!data.sample_size) {
+      body.textContent = data.note || "No local observations yet.";
+      return;
+    }
+    const headline = document.createElement("div");
+    headline.className = "small";
+    headline.textContent = `${data.sample_size} observations · ${data.on_time_pct}% on time (±5 min) · average +${data.average_delay} min`;
+    const detail = document.createElement("div");
+    detail.className = "small muted";
+    detail.textContent = `${data.delayed} delayed · ${data.severe} severe (>15 min) · ${data.stations} stations · ${data.trains} trains`;
+    const note = document.createElement("div");
+    note.className = "source-note";
+    note.textContent = data.note || "";
+    body.append(headline, detail, note);
+  } catch (_) {
+    body.textContent = "Punctuality log unavailable.";
   }
 }
 
@@ -4129,8 +4258,11 @@ document.getElementById("reportCancel").addEventListener("click", closeReportDia
 document.getElementById("reportKind").addEventListener("change", syncReportKind);
 document.getElementById("reportForm").addEventListener("submit", submitReport);
 document.getElementById("tripStatusRefresh").addEventListener("click", () => loadTripStatus(true));
+document.getElementById("destinationsRefresh").addEventListener("click", loadDestinations);
 initReportValidity();
 updateOnboardUi();
+loadPunctuality();
+setInterval(loadPunctuality, 60000);
 
 animateTrain();
 </script>

@@ -22,6 +22,18 @@ class FakeApp:
             "status_label": "En route: A → B",
         }
 
+    def destinations(self, **kwargs):
+        self.calls.append(("destinations", kwargs))
+        return {
+            "station": {"code": kwargs["station"], "name": "Station A"},
+            "date": kwargs["travel_date"].isoformat(),
+            "destinations": [{"code": "C", "name": "Station C", "train": "MA"}],
+        }
+
+    def punctuality_summary(self, days=7):
+        self.calls.append(("punctuality_summary", days))
+        return {"sample_size": 3, "on_time_pct": 66.7}
+
     def list_reports(self, **kwargs):
         self.calls.append(("reports_list", kwargs))
         return {"reports": [{"id": "abc123", "train": kwargs.get("train")}]}
@@ -115,3 +127,26 @@ def test_invalid_json_is_rejected(fake_server):
         timeout=5,
     )
     assert response.status_code == 400
+
+
+def test_destinations_route(fake_server):
+    app, base = fake_server
+    response = requests.get(
+        base + "/api/destinations",
+        params={"station": "200", "date": "2026-11-27"},
+        timeout=5,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["destinations"][0]["code"] == "C"
+    assert app.calls[0][0] == "destinations"
+    assert app.calls[0][1]["station"] == "200"
+
+
+def test_punctuality_route(fake_server):
+    app, base = fake_server
+    response = requests.get(base + "/api/punctuality", params={"days": 14}, timeout=5)
+
+    assert response.status_code == 200
+    assert response.json()["sample_size"] == 3
+    assert app.calls[0] == ("punctuality_summary", 14)

@@ -20,6 +20,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .models import DataType, Journey, Provenance, Station, Stop
+from .names import clean_route_name, clean_station_name
 from .timeutil import TZ, gtfs_time_to_datetime
 
 WEEKDAY_FIELDS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
@@ -97,7 +98,7 @@ class GtfsFeed:
                 names = self._translations.get(station_id, {})
                 self.stations[station_id] = Station(
                     code=station_id,
-                    name_fr=source["stop_name"],
+                    name_fr=clean_station_name(source["stop_name"]),
                     name_ar=names.get("ar"),
                     name_en=names.get("en"),
                     latitude=float(source["stop_lat"]) if source.get("stop_lat") else None,
@@ -110,7 +111,7 @@ class GtfsFeed:
             route_id=row.get("route_id", ""),
             service_id=row.get("service_id", ""),
             train_number=(row.get("trip_short_name") or "").strip(),
-            headsign=(row.get("trip_headsign") or "").strip(),
+            headsign=clean_route_name(row.get("trip_headsign") or ""),
             direction_id=row.get("direction_id"),
             shape_id=(row.get("shape_id") or "").strip() or None,
         )
@@ -176,14 +177,15 @@ class GtfsFeed:
             seen.add(key)
             route = routes.get(route_id, {})
             route_type = route.get("route_type") or ""
-            product = (route.get("route_short_name") or "").strip() or (
-                "Supratours" if route_type == "202" else "Rail"
+            product = clean_route_name(
+                (route.get("route_short_name") or "").strip()
+                or ("Supratours" if route_type == "202" else "Rail")
             )
             result.append(
                 {
                     "route_id": route_id,
                     "product": product,
-                    "name": route.get("route_long_name") or product,
+                    "name": clean_route_name(route.get("route_long_name") or product),
                     "color": f"#{route.get('route_color') or '888888'}",
                     "type": route_type,
                     "coach": route_type == "202",
@@ -318,6 +320,72 @@ class GtfsFeed:
         rows = self._times_by_trip.get(trip_id) or []
         return gtfs_time_to_datetime(travel_date, rows[0].get("departure_time")) if rows else None
 
+    def direct_destinations(
+        self,
+        origin_code: str,
+        travel_date: date,
+        *,
+        after: datetime | None = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """Every downstream station reachable without changing trains.
+
+        Built entirely from the GTFS stop sequences: for each trip serving
+        ``origin_code``, collect every later stop and keep the earliest
+        departure per destination. No upstream API call is involved.
+        """
+        origin = str(origin_code)
+        routes = {row["route_id"]: row for row in self._route_rows}
+        best: dict[str, dict] = {}
+
+        for trip in self.trips_on(travel_date):
+            rows = self._times_by_trip.get(trip.trip_id) or []
+            codes = [self._stop_to_station.get(row["stop_id"], row["stop_id"]) for row in rows]
+            try:
+                origin_index = codes.index(origin)
+            except ValueError:
+                continue
+
+            route = routes.get(trip.route_id, {})
+            route_type = str(route.get("route_type") or "")
+            product, product_color = self.route_info(trip.route_id)
+            for row in rows[origin_index + 1 :]:
+                destination_code = self._stop_to_station.get(row["stop_id"], row["stop_id"])
+                if destination_code == origin:
+                    continue
+                departure = gtfs_time_to_datetime(travel_date, rows[origin_index].get("departure_time"))
+                arrival = gtfs_time_to_datetime(travel_date, row.get("arrival_time"))
+                if departure is None:
+                    continue
+                if after is not None and departure <= after:
+                    continue
+                destination = self.stations.get(destination_code) or Station(
+                    code=destination_code, name_fr=destination_code
+                )
+                duration = None
+                if arrival is not None and arrival >= departure:
+                    duration = int((arrival - departure).total_seconds() // 60)
+                item = {
+                    "code": destination_code,
+                    "name": destination.name_fr,
+                    "ar": destination.name_ar,
+                    "departure": departure.isoformat(),
+                    "departure_ms": int(departure.timestamp() * 1000),
+                    "arrival": arrival.isoformat() if arrival else None,
+                    "duration_minutes": duration,
+                    "train": trip.train_number,
+                    "trip_id": trip.trip_id,
+                    "route_id": trip.route_id,
+                    "product": product,
+                    "product_color": product_color,
+                    "coach": route_type == "202",
+                }
+                current = best.get(destination_code)
+                if current is None or item["departure"] < current["departure"]:
+                    best[destination_code] = item
+
+        return sorted(best.values(), key=lambda item: item["departure"])[:limit]
+
     def route_info(self, route_id: str) -> tuple[str, str]:
         """``(product_name, colour)`` for a route, e.g. ("Al Boraq", "#E82030")."""
         row = next((r for r in self._route_rows if r["route_id"] == route_id), None)
@@ -327,7 +395,7 @@ class GtfsFeed:
         if not name and row.get("route_type") == "202":
             name = "Supratours"
         color = row.get("route_color") or ""
-        return name, (f"#{color}" if color else "")
+        return clean_route_name(name), (f"#{color}" if color else "")
 
     def journey(self, trip_id: str, travel_date: date) -> Journey:
         trip = self._trips_by_id[trip_id]

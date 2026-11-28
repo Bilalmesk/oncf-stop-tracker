@@ -25,7 +25,7 @@ def feed() -> GtfsFeed:
 
 def test_station_codes_match_official_catalogue(feed):
     assert feed.station("200") is not None
-    assert feed.station("380").name_fr.upper().startswith("FES")
+    assert feed.station("380").name_fr == "Fès"
     assert feed.station("490").name_fr.upper() == "OUJDA"
 
 
@@ -159,3 +159,30 @@ def test_network_overview_has_products_and_shapes(feed):
     assert {"Al Boraq", "Al Atlas"} <= products
     # Simplification must actually reduce the payload.
     assert sum(len(route["shape"]) for route in routes) < 20000
+
+
+def test_direct_destinations_from_casa(feed):
+    travel_date = _find_service_date(feed, "MA")
+    destinations = feed.direct_destinations("200", travel_date)
+
+    codes = {item["code"] for item in destinations}
+    assert "490" in codes
+    assert "380" in codes
+    assert len(codes) == len(destinations)
+    assert all(item["train"] for item in destinations)
+    assert all(item["departure"] for item in destinations)
+    assert destinations == sorted(destinations, key=lambda item: item["departure"])
+
+
+def test_direct_destinations_can_filter_past_departures(feed):
+    travel_date = _find_service_date(feed, "MA")
+    destinations = feed.direct_destinations("200", travel_date)
+    cutoff = datetime.fromisoformat(destinations[0]["departure"]) + timedelta(minutes=1)
+    filtered = feed.direct_destinations("200", travel_date, after=cutoff)
+
+    assert all(item["departure"] > cutoff.isoformat() for item in filtered)
+
+
+def test_direct_destinations_returns_empty_for_unknown_station(feed):
+    travel_date = _find_service_date(feed, "MA")
+    assert feed.direct_destinations("does-not-exist", travel_date) == []

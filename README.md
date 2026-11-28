@@ -25,6 +25,10 @@ a separate private repository.
   delay shift and a clear “not GPS” label.
 - **I'm on this trip** — one tap makes the map follow the estimated train marker,
   persists across reloads, and offers the mode when GPS finds you at the origin.
+- **Direct destinations** — every city reachable from the current origin without
+  changing trains, computed from the existing GTFS feed.
+- **Observed punctuality** — local on-time/delay KPIs from the live boards this
+  installation has actually seen.
 - **Community reports** — travellers can report a cancellation or departure
   delay, confirm/dispute others, all marked unverified.
 - **Journey planner** — city or station autocomplete, popular routes, nearest
@@ -112,6 +116,47 @@ The map follows the **timetable estimate**, not GPS telemetry. Your own GPS dot
 stays visible and independent. **Leave trip** stops the follow behavior without
 closing the journey.
 
+## Direct destinations
+
+For the current origin, the **Direct destinations** card lists every downstream
+station reachable on the same train — no changes, no new API. It is computed by
+iterating the GTFS trips that call at the origin and collecting their later
+stops, then keeping the earliest departure per destination.
+
+Each row shows the destination, next departure, train, product/colour and
+duration. Clicking a row opens that direct journey in the existing planner.
+
+```text
+GET /api/destinations?station=200&date=2026-11-28&limit=40
+```
+
+The station names are display-cleaned (`Aéroport Mohammed V`, `Aïn Taoujdate`,
+`Beni Oukil`, `Sebaa Aioun`, `Facultés`, `Fès`, `Kénitra`, `Meknès`, `Salé`),
+and Supratours `(suprat.)`/`(supra.)` markers are removed from route labels.
+Station codes and trip identities are unchanged.
+
+## Observed punctuality
+
+Every fresh live station board is appended to a local JSONL log, but only when
+a departure is first seen or its real time changes. Repeated identical polls do
+not inflate the sample.
+
+The **Observed punctuality** card shows:
+
+- number of observations;
+- on-time percentage (≤5 min);
+- delayed (>5 min) and severe (>15 min);
+- average/median/max delay;
+- stations and trains covered.
+
+```text
+GET /api/punctuality?days=7
+```
+
+This is **your installation's sample**, not an official ONCF punctuality
+statistic. The log lives in `data/punctuality/observations.jsonl` and is
+git-ignored.
+
 ## Install and run
 
 ```bash
@@ -185,6 +230,10 @@ See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
 - ONCF data belongs to ONCF. This gateway is for personal/interoperability use;
   do not resell or redistribute the raw feed. The community GTFS feed remains
   ODbL.
+- Timetable data from
+  [oncf-gtfs-unofficial](https://github.com/orhazal/oncf-gtfs-unofficial)
+  (ODbL), built from ONCF’s published timetables; station locations
+  © OpenStreetMap contributors.
 
 ## Tests
 
@@ -192,10 +241,11 @@ See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
 python -m pytest -q
 ```
 
-127 tests cover stop calculations, timezone quirks, GTFS, live departure
+144 tests cover stop calculations, timezone quirks, GTFS, live departure
 parsing/caching, route-shape fallback, works notices, trip status, community
-reports, the local API contract and source health. Tests that require official
-fixtures skip automatically when the fixtures are absent.
+reports, direct destinations, punctuality logging, the local API contract and
+source health. Tests that require official fixtures skip automatically when the
+fixtures are absent.
 
 ## Project layout
 
@@ -208,6 +258,8 @@ oncf/
   tracker.py        scheduled progress interpolation
   trip_status.py    where-is-it-now estimator + delay shift
   reports.py        local community reports store
+  names.py          display-only GTFS station/route cleanup
+  punctuality.py    append-only live-board observations + KPIs
   live.py           local HTTP server + UI
   web/              MapLibre/Leaflet map, live panel, Night style
 docs/

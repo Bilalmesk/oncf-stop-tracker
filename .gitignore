@@ -7,6 +7,7 @@ venv/
 # Runtime cache (re-fetched on demand)
 data/cache/
 data/reports/
+data/punctuality/
 
 # Third-party data is not redistributed:
 #  - ONCF PDFs and API captures are subject to ONCF's terms
