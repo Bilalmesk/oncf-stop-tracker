@@ -525,7 +525,7 @@
           <span class="small muted" id="gridStatus">Timetables: checking…</span>
           <button class="link-btn" id="gridRefresh" type="button" title="Check the official timetable page now">Check now</button>
         </div>
-        <div class="tools-note">Press <kbd>/</kbd> to find a station · <kbd>J</kbd> to plan a journey</div>
+        <div class="tools-note" data-i18n-html="tools.hint">Press <kbd>/</kbd> to find a station · <kbd>J</kbd> to plan a journey</div>
       </div>
     </details>
     <button class="badge gps-pill" id="gpsBadge" type="button" title="Enable live GPS">GPS: off</button>
@@ -579,7 +579,7 @@
 
         <details class="card live-note">
           <summary><span><b>What is live here?</b> <span class="muted small">GPS + station departures</span></span></summary>
-          <div class="small" style="margin-top:8px">
+          <div class="small" style="margin-top:8px" data-i18n-html="liveNote.body">
             Your phone's GPS is live. <b>Station departure times and delay levels are live</b>
             from ONCF's current mobile API (see “Live departures”). ONCF publishes no
             train positions, so the orange marker is still an <b>estimate from the
@@ -643,12 +643,12 @@
           </div>
           <div id="tripStatusAdvisory" class="trip-notice" hidden></div>
           <div class="report-actions">
-            <button class="btn small" id="onboardBtn" type="button">I'm on this trip</button>
+            <button class="btn small" id="onboardBtn" type="button" data-i18n="status.onboard">I'm on this trip</button>
             <button class="btn small primary" id="reportOpenBtn" type="button" data-i18n="status.report">Report a problem</button>
             <span class="small muted" data-i18n="reports.unverified">Community reports are unverified.</span>
           </div>
           <div id="onboardPrompt" class="trip-notice" hidden>
-            <span id="onboardPromptText">You're near the boarding station. Are you on this trip?</span>
+            <span id="onboardPromptText" data-i18n="status.prompt">You're near the boarding station. Are you on this trip?</span>
             <button class="link-btn" id="onboardYes" type="button" data-i18n="status.yes">Yes, I'm on board</button>
             <button class="link-btn" id="onboardNo" type="button" data-i18n="status.no">Not now</button>
           </div>
@@ -661,7 +661,7 @@
         <div class="card" id="destinationsCard" hidden>
           <h3><span data-i18n="dest.title">Direct destinations</span> <span class="muted small" id="destinationsFrom"></span></h3>
           <div class="row small muted">
-            <span id="destinationsNote">From the current origin, no changes.</span>
+            <span id="destinationsNote" data-i18n="dest.noChanges">From the current origin, no changes.</span>
             <button class="link-btn" id="destinationsRefresh" type="button" data-i18n="status.refresh">Refresh</button>
           </div>
           <div id="destinationsList" class="dest-list"></div>
@@ -683,13 +683,13 @@
             </span>
           </div>
           <div class="stoplist" id="stopList"></div>
-          <div class="small muted" id="stopsNote" style="margin-top:8px">
+          <div class="small muted" id="stopsNote" style="margin-top:8px" data-i18n="stops.note">
             “No dwell” means the source printed only one time for that station.
             Official works/suspension notices are shown in Traffic information and are not
             automatically applied to these timetable times.
           </div>
           <details class="journey-notes" id="journeyNotesDetails" hidden>
-            <summary>Source &amp; verification notes</summary>
+            <summary data-i18n="journey.notesTitle">Source &amp; verification notes</summary>
             <div id="journeyNotes" class="small muted"></div>
           </details>
         </div>
@@ -704,7 +704,7 @@
           <div class="row small"><span class="muted">Official PDF</span><span id="selPdf">—</span></div>
           <div class="row small"><span class="muted">Distance from you</span><span class="mono" id="selDistance">—</span></div>
           <div class="row small"><span class="muted">Status</span><span id="selStatus">—</span></div>
-          <div class="small muted" id="railNote" style="margin-top:6px;display:none">
+          <div class="small muted" id="railNote" style="margin-top:6px;display:none" data-i18n="selected.railNote">
             ONCF does not publish platform assignments in its public timetable data.
           </div>
 
@@ -739,7 +739,7 @@
         <details class="card" id="sourcesCard">
           <summary>Data sources</summary>
           <div id="sourcesBody" class="sources-body small muted">Open to check source health.</div>
-          <div class="source-note" style="margin-top:8px">
+          <div class="source-note" style="margin-top:8px" data-i18n-html="source.odbl">
             Timetable data from
             <a href="https://github.com/orhazal/oncf-gtfs-unofficial" target="_blank" rel="noopener noreferrer">oncf-gtfs-unofficial</a>
             (ODbL), built from ONCF’s published timetables; station locations
@@ -875,14 +875,15 @@
 <script>
 const MOROCCO_TZ = "Africa/Casablanca";
 const todayInMorocco = () => new Date().toLocaleDateString("en-CA", { timeZone: MOROCCO_TZ });
+const localeTag = () => currentLang() === "fr" ? "fr-FR" : currentLang() === "ar" ? "ar-MA" : "en-GB";
 const fmtTime = (s) => s || "--:--";
 
 const state = {
-  data: null, shape: [], cum: [], schedule: [], stops: [], services: [],
+  data: null, shape: [], cum: [], schedule: [], stops: [], services: [], servicesMeta: null,
   selected: null, user: null, userMarker: null, accuracy: null, trainMarker: null,
   line: null, stationLayer: null, connector: null,
   alertRadius: 8000, alertArmed: false, alertInside: false, notify: false, watchId: null,
-  moroccoOffset: null, network: null,
+  moroccoOffset: null, network: null, gridData: null, gpsAccuracy: null,
   lastRefresh: 0, autoRefreshMs: 600000,
   networkVisible: localStorage.getItem("oncf:network2") !== "0",
   pendingLocate: false,
@@ -890,6 +891,8 @@ const state = {
   verifying: false,
   journeyToken: 0,
   trafficNotices: [],
+  trafficData: null,
+  departuresData: null,
   tripStatus: null,
   tripStatusLoading: false,
   onboard: (() => {
@@ -923,7 +926,7 @@ class Combobox {
     root.innerHTML = `
       <input type="text" autocomplete="off" spellcheck="false" role="combobox"
              aria-autocomplete="list" aria-expanded="false" placeholder="${placeholder}" />
-      <button class="clear" type="button" aria-label="Clear">×</button>
+      <button class="clear" type="button" aria-label="${t("search.clear")}">×</button>
       <div class="combo-list" role="listbox"></div>`;
     this.input = root.querySelector("input");
     this.list = root.querySelector(".combo-list");
@@ -1010,14 +1013,14 @@ class Combobox {
     } catch (e) {
       if (mine !== this.seq) return;
       this.options = [];
-      this.list.innerHTML = `<div class="combo-empty">Search failed: ${e.message}</div>`;
+      this.list.innerHTML = `<div class="combo-empty">${t("search.searchFailed", { error: e.message })}</div>`;
       this.list.classList.add("open");
     }
   }
 
   render() {
     if (!this.options.length) {
-      this.list.innerHTML = `<div class="combo-empty">No matches</div>`;
+      this.list.innerHTML = `<div class="combo-empty">${t("search.noMatches")}</div>`;
       this.list.classList.add("open");
       this.input.setAttribute("aria-expanded", "true");
       return;
@@ -1232,8 +1235,8 @@ function showLineInfo(route, line) {
   document.getElementById("lineInfoDot").style.background = route.color;
   document.getElementById("lineInfoName").textContent = `${route.product} · ${route.name}`;
   document.getElementById("lineInfoMeta").textContent = route.approximate
-    ? "coach · straight-line approximation"
-    : "rail line · schedule data, not live";
+    ? t("line.coach")
+    : t("line.rail");
   document.getElementById("lineInfo").hidden = false;
 }
 
@@ -1243,6 +1246,7 @@ function hideLineInfo() {
 }
 
 function renderTraffic(data) {
+  state.trafficData = data;
   const body = document.getElementById("trafficBody");
   const meta = document.getElementById("trafficMeta");
   const badge = document.getElementById("trafficBadge");
@@ -1255,8 +1259,8 @@ function renderTraffic(data) {
     const empty = document.createElement("div");
     empty.className = "small muted";
     empty.textContent = data.error
-      ? `Traffic information unavailable: ${String(data.error).slice(0, 160)}`
-      : "No current works notice published.";
+      ? t("traffic.unavailable", { error: String(data.error).slice(0, 160) })
+      : t("traffic.empty");
     body.appendChild(empty);
   } else {
     for (const [index, notice] of notices.entries()) {
@@ -1284,10 +1288,10 @@ function renderTraffic(data) {
       const toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "link-btn";
-      toggle.textContent = "Show details";
+      toggle.textContent = t("traffic.showDetails");
       toggle.onclick = () => {
         item.classList.toggle("open");
-        toggle.textContent = item.classList.contains("open") ? "Hide details" : "Show details";
+        toggle.textContent = item.classList.contains("open") ? t("traffic.hideDetails") : t("traffic.showDetails");
       };
       actions.appendChild(toggle);
 
@@ -1295,7 +1299,7 @@ function renderTraffic(data) {
       link.href = notice.url || data.source_url || "#";
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.textContent = "Official page";
+      link.textContent = t("traffic.officialPage");
       actions.appendChild(link);
       item.appendChild(actions);
       body.appendChild(item);
@@ -1305,29 +1309,35 @@ function renderTraffic(data) {
       more.type = "button";
       more.className = "link-btn";
       more.style.marginTop = "6px";
-      more.textContent = `More notices (${notices.length - 1})`;
+      more.textContent = t("traffic.more", { n: notices.length - 1 });
       const extraItems = [...body.querySelectorAll(".traffic-item")].slice(1);
       let open = false;
       more.onclick = () => {
         open = !open;
         extraItems.forEach((item) => { item.hidden = !open; });
-        more.textContent = open ? "Show fewer" : `More notices (${notices.length - 1})`;
+        more.textContent = open ? t("traffic.showFewer") : t("traffic.more", { n: notices.length - 1 });
       };
       body.appendChild(more);
     }
   }
 
   if (badge) {
-    badge.textContent = data.error ? (notices.length ? "cached" : "unavailable") : "official";
+    badge.textContent = data.error
+      ? (notices.length ? t("traffic.cached") : t("traffic.unavailableShort"))
+      : t("traffic.official");
     badge.className = "badge " + (data.error ? "unofficial" : "official");
   }
   if (meta) {
     const fetched = data.fetched_at ? new Date(data.fetched_at) : null;
     const when = fetched && !Number.isNaN(fetched.getTime())
-      ? fetched.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-      : "not fetched";
+      ? fetched.toLocaleString(localeTag(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+      : t("traffic.notFetched");
     const warning = data.error ? ` · ${String(data.error).slice(0, 100)}` : "";
-    meta.textContent = `${data.stale ? "Cached" : "Official ONCF notice"} · ${when}${warning}`;
+    meta.textContent = t("traffic.meta", {
+      state: data.stale ? t("traffic.cachedNotice") : t("traffic.officialNotice"),
+      time: when,
+      warning,
+    });
   }
   renderTripNotice();
 }
@@ -1337,7 +1347,7 @@ async function loadTraffic(refresh = false) {
   const body = document.getElementById("trafficBody");
   if (button) button.disabled = true;
   if (body && !body.querySelector(".traffic-item")) {
-    body.innerHTML = '<div class="muted small">Loading official works notices…</div>';
+    body.innerHTML = `<div class="muted small">${t("traffic.loading")}</div>`;
   }
   try {
     const data = await fetchJson(`/api/traffic${refresh ? "?refresh=1" : ""}`);
@@ -1347,11 +1357,11 @@ async function loadTraffic(refresh = false) {
       body.innerHTML = "";
       const failed = document.createElement("div");
       failed.className = "small muted";
-      failed.textContent = `Traffic information unavailable: ${error.message}`;
+      failed.textContent = t("traffic.unavailable", { error: error.message });
       body.appendChild(failed);
     }
     const badge = document.getElementById("trafficBadge");
-    if (badge) { badge.textContent = "unavailable"; badge.className = "badge unofficial"; }
+    if (badge) { badge.textContent = t("traffic.unavailableShort"); badge.className = "badge unofficial"; }
   } finally {
     if (button) button.disabled = false;
   }
@@ -1360,6 +1370,7 @@ async function loadTraffic(refresh = false) {
 let departuresStation = null;
 
 function renderDepartures(data) {
+  state.departuresData = data;
   const body = document.getElementById("departuresBody");
   const meta = document.getElementById("departuresMeta");
   const badge = document.getElementById("departuresBadge");
@@ -1371,8 +1382,8 @@ function renderDepartures(data) {
     const empty = document.createElement("div");
     empty.className = "small muted";
     empty.textContent = data.error
-      ? `Live departures unavailable: ${String(data.error).slice(0, 160)}`
-      : "No upcoming departures in the next hour.";
+      ? t("departures.unavailable", { error: String(data.error).slice(0, 160) })
+      : t("departures.empty");
     body.appendChild(empty);
   } else {
     for (const d of items) {
@@ -1393,7 +1404,7 @@ function renderDepartures(data) {
       const delay = document.createElement("span");
       delay.className = "departure-badge " + ["on_time", "low", "medium", "high"][level];
       const mins = Number(d.delay_minutes) || 0;
-      delay.textContent = mins > 0 ? `+${mins}m ${d.delay_label || ""}` : "on time";
+      delay.textContent = mins > 0 ? `+${mins}m ${d.delay_label || ""}` : t("departures.onTime");
       top.appendChild(delay);
       row.appendChild(top);
 
@@ -1421,22 +1432,29 @@ function renderDepartures(data) {
     const note = document.createElement("div");
     note.className = "small muted";
     note.style.marginTop = "6px";
-    note.textContent = data.note || "";
+    note.textContent = t("departures.note");
     body.appendChild(note);
   }
 
   if (badge) {
-    badge.textContent = data.error ? (items.length ? "cached" : "unavailable") : "live";
+    badge.textContent = data.error
+      ? (items.length ? t("departures.cached") : t("departures.unavailableShort"))
+      : t("departures.live");
     badge.className = "badge " + (data.error ? "unofficial" : "live");
   }
   if (meta) {
     const fetched = data.fetched_at ? new Date(data.fetched_at) : null;
     const when = fetched && !Number.isNaN(fetched.getTime())
-      ? fetched.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      : "not fetched";
-    const station = data.station?.name ? `${data.station.name} (${data.station.code})` : "station";
+      ? fetched.toLocaleTimeString(localeTag(), { hour: "2-digit", minute: "2-digit" })
+      : t("departures.notFetched");
+    const station = data.station?.name ? `${data.station.name} (${data.station.code})` : t("map.station");
     const warning = data.error ? ` · ${String(data.error).slice(0, 100)}` : "";
-    meta.textContent = `${station} · ${data.stale ? "cached" : "live"} · fetched ${when}${warning}`;
+    meta.textContent = t("departures.fetched", {
+      station,
+      state: data.stale ? t("departures.cached") : t("departures.live"),
+      time: when,
+      warning,
+    });
   }
 }
 
@@ -1458,7 +1476,7 @@ function renderDepartureEmpty(body) {
   body.innerHTML = "";
   const hint = document.createElement("div");
   hint.className = "muted small";
-  hint.textContent = "Pick a station to see real departure times and delays.";
+  hint.textContent = t("departures.pick");
   body.appendChild(hint);
   const chips = document.createElement("div");
   chips.className = "chips";
@@ -1485,7 +1503,7 @@ async function loadDepartures({ refresh = false, silent = false } = {}) {
   }
   if (button) button.disabled = true;
   if (!silent && body && !body.querySelector(".departure-item")) {
-    body.innerHTML = '<div class="muted small">Loading live departures…</div>';
+    body.innerHTML = `<div class="muted small">${t("departures.loading")}</div>`;
   }
   try {
     const data = await fetchJson(`/api/departures?station=${encodeURIComponent(station)}${refresh ? "&refresh=1" : ""}`);
@@ -1497,10 +1515,10 @@ async function loadDepartures({ refresh = false, silent = false } = {}) {
       body.innerHTML = "";
       const failed = document.createElement("div");
       failed.className = "small muted";
-      failed.textContent = `Live departures unavailable: ${error.message}`;
+      failed.textContent = t("departures.unavailable", { error: error.message });
       body.appendChild(failed);
     }
-    if (badge) { badge.textContent = "unavailable"; badge.className = "badge unofficial"; }
+    if (badge) { badge.textContent = t("departures.unavailableShort"); badge.className = "badge unofficial"; }
   } finally {
     if (button) button.disabled = false;
   }
@@ -1545,20 +1563,20 @@ function renderSources(data) {
   if (data.error) {
     const error = document.createElement("div");
     error.className = "source-note";
-    error.textContent = `Source check failed: ${data.error}`;
+    error.textContent = t("sources.failed", { error: data.error });
     body.appendChild(error);
   }
 
   const footer = document.createElement("div");
   footer.className = "source-note";
-  const when = data.checked_at ? new Date(data.checked_at).toLocaleString() : "unknown time";
-  footer.textContent = `Checked ${when}. ${data.note || ""}`;
+  const when = data.checked_at ? new Date(data.checked_at).toLocaleString(localeTag()) : t("sources.unknownTime");
+  footer.textContent = t("sources.checked", { time: when, note: data.note ? ` ${data.note}` : "" });
   body.appendChild(footer);
 
   const refresh = document.createElement("button");
   refresh.type = "button";
   refresh.className = "link-btn";
-  refresh.textContent = "Check again";
+  refresh.textContent = t("sources.checkAgain");
   refresh.onclick = () => loadSources(true);
   body.appendChild(refresh);
 }
@@ -1567,7 +1585,7 @@ async function loadSources(refresh = false) {
   const body = document.getElementById("sourcesBody");
   if (!body) return;
   if (sourcesLoaded && !refresh) return;
-  body.innerHTML = '<div class="muted small">Checking ONCF sources…</div>';
+  body.innerHTML = `<div class="muted small">${t("sources.loading")}</div>`;
   try {
     const data = await fetchJson(`/api/sources${refresh ? "?refresh=1" : ""}`);
     renderSources(data);
@@ -1576,7 +1594,7 @@ async function loadSources(refresh = false) {
     body.innerHTML = "";
     const failed = document.createElement("div");
     failed.className = "source-note";
-    failed.textContent = `Source check failed: ${error.message}`;
+    failed.textContent = t("sources.failed", { error: error.message });
     body.appendChild(failed);
   }
 }
@@ -1660,13 +1678,37 @@ function syncFocusButton() {
 }
 
 
+function updateNetworkStats() {
+  const stats = document.getElementById("networkStats");
+  const data = state.network;
+  if (!stats || !data) return;
+  stats.textContent = t("map.networkStats", {
+    lines: data.routes?.length || 0,
+    stations: data.stations?.length || 0,
+    cities: data.cities?.length || 0,
+  });
+}
+
+function updateRouteLegend() {
+  const legend = document.getElementById("routeLegend");
+  if (!legend) return;
+  const source = state.data?.shape_source;
+  legend.textContent = source === "route"
+    ? t("map.routeShape")
+    : source === "trip"
+    ? t("map.tripShape")
+    : source === "straight"
+    ? t("map.straightShape")
+    : t("map.defaultShape");
+}
+
 function stationPopupHtml(station) {
-  const meta = [station.ar, station.city, `code ${station.code}`].filter(Boolean).join(" · ");
+  const meta = [station.ar, station.city, t("map.code", { code: station.code })].filter(Boolean).join(" · ");
   return `<div style="font-weight:650">${station.name}</div>
     <div class="small" style="color:#8b98a9">${meta}</div>
     <div style="margin-top:6px;display:flex;gap:12px">
-      <a href="#" onclick="pickStation('${station.code}','from');return false">From here</a>
-      <a href="#" onclick="pickStation('${station.code}','to');return false">To here</a>
+      <a href="#" onclick="pickStation('${station.code}','from');return false">${t("map.fromHere")}</a>
+      <a href="#" onclick="pickStation('${station.code}','to');return false">${t("map.toHere")}</a>
     </div>`;
 }
 
@@ -1685,11 +1727,7 @@ async function loadNetwork() {
     const data = await fetchJson("/api/network");
     state.network = data;
     if (window.VectorMap) VectorMap.renderNetwork(data);
-    const stats = document.getElementById("networkStats");
-    if (stats) {
-      stats.textContent =
-        `${data.routes.length} lines · ${data.stations.length} stations · ${data.cities.length} cities`;
-    }
+    updateNetworkStats();
     const adapter = activeMap();
     if (adapter && adapter.renderNetwork) adapter.renderNetwork(data);
     networkLayer = L.layerGroup();
@@ -1719,7 +1757,7 @@ async function loadNetwork() {
         dashArray: route.coach ? "4 5" : null,
         interactive: !route.coach,
       }).bindTooltip(
-        `${route.name}${route.approximate ? " (approximate)" : ""}`,
+        `${route.name}${route.approximate ? ` (${t("map.approximate")})` : ""}`,
         { sticky: true, direction: "top", opacity: 0.95 }
       ).addTo(networkLayer);
       (route.coach ? networkShapes.coach : networkShapes.rail).push(line);
@@ -1822,19 +1860,19 @@ function renderNearest() {
   if (!name || !meta || !actions) return;
   const near = nearestStation();
   if (!state.user) {
-    name.textContent = "Find the station closest to you";
-    meta.textContent = "GPS stays on this device";
+    name.textContent = t("near.find");
+    meta.textContent = t("near.gps");
     actions.hidden = true;
     return;
   }
   if (!near) {
-    name.textContent = "Locating nearest station…";
-    meta.textContent = "Waiting for the station network";
+    name.textContent = t("near.locating");
+    meta.textContent = t("near.waiting");
     actions.hidden = true;
     return;
   }
   name.textContent = near.station.name;
-  meta.textContent = `${formatDistance(near.metres)} away${near.station.city ? " · " + near.station.city : ""}`;
+  meta.textContent = t("near.away", { distance: formatDistance(near.metres) }) + (near.station.city ? " · " + near.station.city : "");
   actions.hidden = false;
 }
 
@@ -1935,13 +1973,14 @@ function renderPopularChips() {
 
 function applyUserPosition(pos) {
   state.user = [pos.coords.latitude, pos.coords.longitude];
+  state.gpsAccuracy = pos.coords.accuracy;
   const badge = document.getElementById("gpsBadge");
   if (badge) {
-    badge.textContent = `GPS: live ±${Math.round(pos.coords.accuracy)} m`;
+    badge.textContent = t("gps.live", { accuracy: Math.round(pos.coords.accuracy) });
     badge.className = "badge live";
   }
   const locate = document.getElementById("locateBtn");
-  if (locate) locate.textContent = "GPS: live";
+  if (locate) locate.textContent = t("gps.liveShort");
   if (!state.userMarker) {
     state.userMarker = L.marker(state.user, { icon: userIcon(), zIndexOffset: 800 }).addTo(map);
     state.accuracy = L.circle(state.user, {
@@ -1975,19 +2014,19 @@ function flyToUser() {
 
 function getPositionOnce() {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error("GPS unavailable"));
+    if (!navigator.geolocation) return reject(new Error(t("gps.unavailableError")));
     const badge = document.getElementById("gpsBadge");
-    if (badge) badge.textContent = "GPS: locating…";
+    if (badge) badge.textContent = t("gps.locating");
     navigator.geolocation.getCurrentPosition(
       (pos) => { applyUserPosition(pos); resolve(pos); },
       (err) => {
         if (badge) {
-          badge.textContent = "GPS: " + (err.code === 1 ? "permission denied" : "unavailable");
+          badge.textContent = err.code === 1 ? t("gps.permissionDenied") : t("gps.unavailable");
           badge.className = "badge";
           const locate = document.getElementById("locateBtn");
-          if (locate) locate.textContent = "Retry GPS";
+          if (locate) locate.textContent = t("gps.retry");
         }
-        reject(new Error(err.code === 1 ? "permission denied" : "location unavailable"));
+        reject(new Error(err.code === 1 ? t("gps.permissionDeniedShort") : t("gps.locationUnavailable")));
       },
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 15000 }
     );
@@ -1999,7 +2038,7 @@ async function goNearest({ plan = false } = {}) {
     if (!state.user) await getPositionOnce();
     const near = nearestStation();
     if (!near) {
-      showBanner("Station network is still loading. Try again in a moment.", 4500);
+      showBanner(t("near.loading"), 4500);
       return;
     }
     if (plan) {
@@ -2014,7 +2053,7 @@ async function goNearest({ plan = false } = {}) {
       document.getElementById("departuresCard").scrollIntoView({ behavior: "smooth", block: "start" });
     }
   } catch (error) {
-    showBanner("Could not get your location: " + error.message, 5000);
+    showBanner(t("location.error", { error: error.message }), 5000);
   }
 }
 
@@ -2023,7 +2062,7 @@ async function setFromNearest() {
     if (!state.user) await getPositionOnce();
     const near = nearestStation();
     if (!near) {
-      showBanner("Station network is still loading. Try again in a moment.", 4500);
+      showBanner(t("near.loading"), 4500);
       return;
     }
     fromCombo.setSelectedQuiet({ value: near.station.code, label: near.station.name });
@@ -2032,7 +2071,7 @@ async function setFromNearest() {
     toCombo.input.focus();
     if (toCombo.value) loadServices();
   } catch (error) {
-    showBanner("Could not get your location: " + error.message, 5000);
+    showBanner(t("location.error", { error: error.message }), 5000);
   }
 }
 
@@ -2122,38 +2161,38 @@ function stopTimeInfo(stop) {
   const dwell = Number.isFinite(stop.duration_minutes) ? stop.duration_minutes : null;
 
   if (stop.kind === "origin") {
-    return { text: departure || "—", label: departure ? "departure" : "not published", arrival, departure, dwell: null };
+    return { text: departure || "—", label: departure ? t("stop.departure") : t("stop.notPublished"), arrival, departure, dwell: null };
   }
   if (stop.kind === "destination") {
-    return { text: arrival || "—", label: arrival ? "arrival" : "not published", arrival, departure, dwell: null };
+    return { text: arrival || "—", label: arrival ? t("stop.arrival") : t("stop.notPublished"), arrival, departure, dwell: null };
   }
   if (arrival && departure) {
     return {
       text: arrival === departure ? arrival : `${arrival} → ${departure}`,
-      label: dwell != null ? `${dwell} min stop` : (arrival === departure ? "stop time" : "arrive / depart"),
+      label: dwell != null ? t("stop.dwell", { minutes: dwell }) : (arrival === departure ? t("stop.stopTime") : t("stop.arriveDepart")),
       arrival,
       departure,
       dwell,
     };
   }
-  if (departure) return { text: departure, label: "departure · no dwell", arrival, departure, dwell: null };
-  if (arrival) return { text: arrival, label: "arrival · no dwell", arrival, departure, dwell: null };
-  return { text: "—", label: "not published", arrival, departure, dwell: null };
+  if (departure) return { text: departure, label: t("stop.departureNoDwell"), arrival, departure, dwell: null };
+  if (arrival) return { text: arrival, label: t("stop.arrivalNoDwell"), arrival, departure, dwell: null };
+  return { text: "—", label: t("stop.notPublished"), arrival, departure, dwell: null };
 }
 
 function stopPopup(s) {
   const rows = [];
   const time = stopTimeInfo(s);
-  if (time.arrival) rows.push(`<div>Arrive <b>${time.arrival}</b></div>`);
-  if (time.departure) rows.push(`<div>Depart <b>${time.departure}</b></div>`);
+  if (time.arrival) rows.push(`<div>${t("stop.arrival")} <b>${time.arrival}</b></div>`);
+  if (time.departure) rows.push(`<div>${t("stop.departure")} <b>${time.departure}</b></div>`);
   if (time.dwell != null) {
-    rows.push(`<div>Stop <b>${time.dwell} min</b></div>`);
+    rows.push(`<div>${t("stop.stopTime")} <b>${time.dwell} min</b></div>`);
   } else if ((time.arrival || time.departure) && s.kind === "intermediate") {
-    rows.push(`<div>Stop <b>dwell not published</b></div>`);
+    rows.push(`<div>${t("stop.stopTime")} <b>${t("stop.dwellNotPublished")}</b></div>`);
   } else if (!time.arrival && !time.departure) {
-    rows.push(`<div>Scheduled time <b>not published</b></div>`);
+    rows.push(`<div>${t("stop.scheduledTime")} <b>${t("stop.notPublished")}</b></div>`);
   }
-  rows.push(`<div class="small" style="color:#8b98a9">${s.status_label}</div>`);
+  rows.push(`<div class="small" style="color:#8b98a9">${localizedStatusLabel(s.status_label)}</div>`);
   return `<div style="font-weight:650;margin-bottom:4px">${s.name.fr}</div>${rows.join("")}`;
 }
 
@@ -2202,17 +2241,7 @@ function renderMap() {
       }),
     ]).addTo(map);
     state.progressLine = state.line.getLayers()[3];
-    const legend = document.getElementById("routeLegend");
-    if (legend) {
-      const source = state.data?.shape_source;
-      legend.textContent = source === "route"
-        ? "Your route (GTFS route shape)"
-        : source === "trip"
-        ? "Your route (GTFS trip shape)"
-        : source === "straight"
-        ? "Your route (straight-line estimate)"
-        : "Your route (GTFS shape)";
-    }
+    updateRouteLegend();
     bringRouteToFront();
   }
 
@@ -2233,7 +2262,7 @@ function renderMap() {
       L.marker([s.lat, s.lon], {
         icon: L.divIcon({
           className: "",
-          html: `<div class="station-label"><span class="station-role">${isOrigin ? "Start" : "End"}</span>${s.name.fr}</div>`,
+          html: `<div class="station-label"><span class="station-role">${isOrigin ? t("map.start") : t("map.end")}</span>${s.name.fr}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, -14],
         }),
@@ -2246,7 +2275,7 @@ function renderMap() {
 
   if (state.shape.length) {
     state.trainMarker = L.marker(state.shape[0], { icon: trainIcon(), zIndexOffset: 500 })
-      .bindTooltip("Scheduled estimate — not the train's real position", { direction: "top", offset: [0,-14] })
+      .bindTooltip(t("map.scheduledEstimate"), { direction: "top", offset: [0,-14] })
       .addTo(map);
   }
   setJourneyFocus(state.shape.length > 1);
@@ -2287,15 +2316,15 @@ function renderStops() {
     const div = document.createElement("div");
     const time = stopTimeInfo(s);
     const detail = [
-      `arrive ${time.arrival || "not published"}`,
-      `depart ${time.departure || "not published"}`,
-      `stop ${time.dwell != null ? time.dwell + " min" : "not published"}`,
+      `${t("stop.arrival")} ${time.arrival || t("stop.notPublished")}`,
+      `${t("stop.departure")} ${time.departure || t("stop.notPublished")}`,
+      `${t("stop.stopTime")} ${time.dwell != null ? time.dwell + " min" : t("stop.notPublished")}`,
     ].join(" · ");
     div.className = "stop" + (state.selected === i ? " active" : "");
     div.title = detail;
     div.innerHTML = `
       <div class="seq">${s.sequence}</div>
-      <div><div class="name">${s.name.fr}</div><div class="small muted">${s.kind}${s.is_boarding ? " · board here" : ""}${s.is_alighting ? " · alight here" : ""}</div></div>
+      <div><div class="name">${s.name.fr}</div><div class="small muted">${t("stop.kind." + s.kind)}${s.is_boarding ? " · " + t("stop.boardHere") : ""}${s.is_alighting ? " · " + t("stop.alightHere") : ""}</div></div>
       <div class="times mono">
         <div>${time.text}</div>
         <div class="dur">${time.label}</div>
@@ -2307,29 +2336,36 @@ function renderStops() {
   renderStopsStatus();
 }
 
-function selectStop(i, focus = true) {
-  state.selected = i;
-  state.alertInside = false;
-  const s = state.stops[i];
-  document.getElementById("selectedCard").hidden = false;
+function renderSelectedCard() {
+  if (state.selected == null) return;
+  const s = state.stops[state.selected];
+  if (!s) return;
   const time = stopTimeInfo(s);
   document.getElementById("selName").textContent = s.name.fr;
   document.getElementById("selTimes").textContent = time.text;
   document.getElementById("selTimesLabel").textContent =
-    s.kind === "origin" ? "Departure" : s.kind === "destination" ? "Arrival" : "Arrival / departure";
+    s.kind === "origin" ? t("stop.departure") : s.kind === "destination" ? t("stop.arrival") : t("stop.arriveDepart");
   document.getElementById("selStop").textContent =
     s.kind === "origin" || s.kind === "destination"
       ? "—"
       : time.dwell != null
       ? `${time.dwell} min`
-      : "not published";
+      : t("stop.notPublished");
   const rail = document.getElementById("selRail");
-  rail.textContent = s.platform || "Not published";
+  rail.textContent = s.platform || t("stop.notPublished");
   rail.className = s.platform ? "badge official" : "badge";
   document.getElementById("railNote").style.display = s.platform ? "none" : "block";
-  document.getElementById("selStatus").textContent = s.status_label;
+  document.getElementById("selStatus").textContent = localizedStatusLabel(s.status_label);
   document.getElementById("selStatus").className = s.status === "scheduled_official" ? "badge official" : "badge unofficial";
   updateDistance();
+}
+
+function selectStop(i, focus = true) {
+  state.selected = i;
+  state.alertInside = false;
+  const s = state.stops[i];
+  document.getElementById("selectedCard").hidden = false;
+  renderSelectedCard();
   renderStops();
   verifyPdf(s, i);
   const engine = activeMap();
@@ -2358,11 +2394,18 @@ function renderStopsStatus() {
   const complete = state.stops.filter(stopHasCompleteTimes).length;
   const dwell = state.stops.filter((stop) => Number.isFinite(stop.duration_minutes)).length;
   if (!verified) {
-    el.textContent = "Grid times: one time per station. Verify all for arrival + departure + dwell.";
+    el.textContent = t("stops.statusUnverified");
   } else if (complete === state.stops.length) {
-    el.textContent = `All ${state.stops.length} stops verified from ONCF${dwell ? ` · ${dwell} dwell times` : ""}.`;
+    el.textContent = t("stops.statusAll", {
+      n: state.stops.length,
+      dwell: dwell ? t("stops.dwellSuffix", { n: dwell }) : "",
+    });
   } else {
-    el.textContent = `${complete}/${state.stops.length} stops complete${dwell ? ` · ${dwell} dwell times` : ""}. Verify all to check the rest.`;
+    el.textContent = t("stops.statusPartial", {
+      complete,
+      total: state.stops.length,
+      dwell: dwell ? t("stops.dwellSuffix", { n: dwell }) : "",
+    });
   }
   el.title = notes.join("\n");
 }
@@ -2415,21 +2458,67 @@ function renderTripNotice() {
   if (!matches.length) { box.hidden = true; return; }
 
   const first = matches[0];
-  const title = first.title || first.page_name || first.slug || "Official ONCF notice";
+  const title = first.title || first.page_name || first.slug || t("traffic.officialNotice");
   box.hidden = false;
   box.innerHTML = "";
   const text = document.createElement("span");
-  text.textContent = `Official notice may affect this trip: ${title}` +
-    (matches.length > 1 ? ` (+${matches.length - 1} more)` : "");
+  text.textContent = t("notice.affects", {
+    title,
+    more: matches.length > 1 ? t("notice.more", { n: matches.length - 1 }) : "",
+  });
   const open = document.createElement("button");
   open.type = "button";
   open.className = "link-btn";
-  open.textContent = "Read notice";
+  open.textContent = t("notice.read");
   open.onclick = () => {
     document.getElementById("trafficCard").scrollIntoView({ behavior: "smooth", block: "start" });
   };
   box.append(text, open);
   box.title = matches.map((notice) => notice.title || notice.slug || "").join("\n");
+}
+
+function localizeSourceName(name) {
+  const match = String(name || "").match(/^ONCF official grid PDF \((.+)\)$/);
+  return match ? t("source.gridPdf", { name: match[1] }) : name;
+}
+
+function localizeServerNote(note) {
+  let text = String(note || "");
+  text = text.replace(/^Not verified from ONCF:/, t("verify.noteNotVerified"));
+  text = text.replace(/^ONCF official verification:/, t("verify.noteOfficial"));
+  text = text.replace(/^official refresh failed:/, t("verify.noteRefreshFailed"));
+  text = text.replace(/^official verification failed:/, t("verify.noteVerifyFailed"));
+  text = text.replace(
+    /^Stop list and times from (.+), effective (.+)\. The grid prints one time per station \(departure\), so dwell times are unavailable until refreshed from ONCF\.$/,
+    (_, source, effective) => t("verify.noteGrid", { source, effective })
+  );
+  text = text.replace(/\(departure\), so dwell times are unavailable until refreshed/, t("verify.noteDwell"));
+  text = text.replace(/departure time not cross-checked against an arrival time/, t("verify.noteDepartureOnly"));
+  text = text.replace(
+    /Intermediate-station arrival\/departure split is inferred by the feed author from ONCF's one-time-per-station grilles horaires\./,
+    t("verify.noteIntermediate")
+  );
+  text = text.replace(
+    /^Official answer for origin\/destination only; intermediate stops not requested\.$/,
+    t("verify.noteOfficialAnswer")
+  );
+  text = text.replace(
+    /^train not listed by ONCF for this origin\/destination\/date$/,
+    t("verify.noteTrainNotListed")
+  );
+  text = text.replace(
+    /^ONCF lists no (\S+) leg (\S+)->(\S+)$/,
+    (_, train, from, to) => t("verify.noteNoLeg", { train, from, to })
+  );
+  text = text.replace(
+    /^no (\S+) departure from (\S+) found within (\d+) h after arrival; departure marked unavailable$/,
+    (_, train, station, hours) => t("verify.noteNoDeparture", { train, station, hours })
+  );
+  text = text.replace(
+    /^station (\S+) is not on the requested segment$/,
+    (_, station) => t("verify.noteStationNotSegment", { station })
+  );
+  return text;
 }
 
 function renderJourneyMeta() {
@@ -2444,49 +2533,68 @@ function renderJourneyMeta() {
     : notes;
   const source = state.data.journey?.source;
   if (source?.name) {
-    let line = `Source: ${source.name}`;
+    let line = t("journey.source", { name: localizeSourceName(source.name) });
     if (source.retrieved_at) {
       const when = new Date(source.retrieved_at);
       if (!Number.isNaN(when.getTime())) {
-        line += ` · retrieved ${when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`;
+        line += t("journey.retrieved", {
+          time: when.toLocaleString(localeTag(), { dateStyle: "medium", timeStyle: "short" }),
+        });
       }
     }
     visibleNotes.unshift(line);
   }
-  visibleNotes.push(
-    "Works and suspension notices are shown in Traffic information; " +
-    "they are not automatically applied to these timetable times."
-  );
+  visibleNotes.push(t("journey.worksNote"));
   details.hidden = false;
-  details.open = visibleNotes.some((note) => note.startsWith("Not verified"));
-  body.innerHTML = visibleNotes.map((note) => `<div>• ${escapeHtml(note)}</div>`).join("");
+  details.open = visibleNotes.some((note) => note.startsWith(t("verify.notVerified")));
+  body.innerHTML = visibleNotes
+    .map((note) => `<div>• ${escapeHtml(localizeServerNote(note))}</div>`)
+    .join("");
 }
 
 let lastGridEffective = null;
-async function loadGridStatus() {
+function renderGridStatus(data) {
   const el = document.getElementById("gridStatus");
   const button = document.getElementById("gridRefresh");
+  if (!el) return;
+  const effective = data.effective
+    ? new Date(data.effective + "T12:00:00").toLocaleDateString(localeTag(), {
+        year: "numeric", month: "short", day: "numeric",
+      })
+    : t("grid.noPdfs");
+  el.textContent = t("grid.status", { date: effective }) + (data.source === "auto-current" ? " · " + t("grid.auto") : "");
+  el.title = [
+    data.checked_at ? t("grid.checked", { time: new Date(data.checked_at).toLocaleString(localeTag()) }) : "",
+    data.error || "",
+  ].filter(Boolean).join("\n");
+  if (lastGridEffective && data.effective && data.effective !== lastGridEffective) {
+    showBanner(t("grid.updated", { date: effective }), 9000);
+  }
+  lastGridEffective = data.effective || lastGridEffective;
+  if (button) button.disabled = !!data.refreshing;
+}
+
+async function loadGridStatus() {
+  const el = document.getElementById("gridStatus");
   try {
     const data = await fetchJson("/api/grids");
-    if (!el) return;
-    const effective = data.effective
-      ? new Date(data.effective + "T12:00:00").toLocaleDateString([], {
-          year: "numeric", month: "short", day: "numeric",
-        })
-      : "no PDFs";
-    el.textContent = `Timetables: ${effective}` + (data.source === "auto-current" ? " · auto" : "");
-    el.title = [
-      data.checked_at ? `Checked ${new Date(data.checked_at).toLocaleString()}` : "",
-      data.error || "",
-    ].filter(Boolean).join("\n");
-    if (lastGridEffective && data.effective && data.effective !== lastGridEffective) {
-      showBanner(`Timetable PDFs updated: effective ${effective}.`, 9000);
-    }
-    lastGridEffective = data.effective || lastGridEffective;
-    if (button) button.disabled = !!data.refreshing;
+    state.gridData = data;
+    renderGridStatus(data);
   } catch (_) {
-    if (el) el.textContent = "Timetables: unavailable";
+    if (el) el.textContent = t("grid.unavailable");
   }
+}
+
+function localizedStatusLabel(label) {
+  const map = {
+    "Scheduled (official ONCF)": "statusLabel.scheduledOfficial",
+    "Scheduled (unofficial GTFS reproduction)": "statusLabel.scheduledUnofficial",
+    "Mixed sources (see per-stop status)": "statusLabel.mixed",
+    "Estimated (real-time source)": "statusLabel.estimated",
+    "Live / actual": "statusLabel.live",
+    "Unavailable": "statusLabel.unavailable",
+  };
+  return map[label] ? t(map[label]) : label;
 }
 
 function renderSourceBadge() {
@@ -2496,10 +2604,10 @@ function renderSourceBadge() {
   const dataType = state.data.journey.source.data_type;
   badge.hidden = false;
   badge.textContent = {
-    scheduled_official: "Official ONCF",
-    scheduled_unofficial: "Unofficial GTFS",
-    mixed: "Mixed sources",
-    sample: "Offline sample",
+    scheduled_official: t("source.official"),
+    scheduled_unofficial: t("source.unofficial"),
+    mixed: t("source.mixed"),
+    sample: t("source.sample"),
   }[dataType] || dataType;
   badge.className = "badge " +
     (dataType.includes("official") || dataType === "mixed" ? "official" : "unofficial");
@@ -2530,11 +2638,11 @@ async function verifyAllStopTimes({ auto = false } = {}) {
   const status = document.getElementById("stopsStatus");
   const original = button.textContent;
   button.disabled = true;
-  button.textContent = auto ? "Auto-verifying…" : "Verifying…";
+  button.textContent = auto ? t("stops.autoVerifyingShort") : t("stops.verifying");
   if (status) {
     status.textContent = auto
-      ? "Auto-verifying every stop with ONCF. This can take up to a minute…"
-      : "Checking each consecutive pair with ONCF. This can take up to a minute…";
+      ? t("stops.autoVerifying")
+      : t("stops.verifyingLong");
   }
   const params = new URLSearchParams(location.search);
   const segment = state.data.segment;
@@ -2564,16 +2672,16 @@ async function verifyAllStopTimes({ auto = false } = {}) {
     const complete = state.stops.filter(stopHasCompleteTimes).length;
     const missing = (json.journey.notes || []).find((note) => note.startsWith("Not verified"));
     showBanner(
-      (auto ? "Stop times verified automatically" : "ONCF verification finished") +
-      `: ${complete}/${state.stops.length} stops complete.` +
-      (missing ? " " + missing : ""),
+      t(auto ? "verify.autoDone" : "verify.done", {
+        complete,
+        total: state.stops.length,
+      }) + (missing ? " " + localizeServerNote(missing) : ""),
       auto ? 7000 : 12000
     );
   } catch (error) {
     if (state.journeyToken === myToken) {
       showBanner(
-        (auto ? "Automatic stop verification failed: " : "Stop-time verification failed: ") +
-        error.message,
+        t(auto ? "verify.autoFailed" : "verify.failed", { error: error.message }),
         9000
       );
     }
@@ -2591,11 +2699,11 @@ async function verifyPdf(stop, index) {
   // arrival against it would produce false mismatches, so only verify departures.
   const time = stop.departure_time;
   if (!time || time === "--:--" || !state.data) {
-    el.textContent = "— (no printed departure)";
+    el.textContent = t("verify.noPrinted");
     el.className = "muted";
     return;
   }
-  el.textContent = "checking…";
+  el.textContent = t("verify.checking");
   el.className = "muted";
   try {
     const train = state.data.journey.service_label;
@@ -2604,18 +2712,18 @@ async function verifyPdf(stop, index) {
     if (r.status === "match") {
       el.textContent = `✓ ${r.printed}`;
       el.className = "badge official";
-      el.title = `${r.source} · effective ${r.effective}`;
+      el.title = t("verify.sourceEffective", { source: r.source, date: r.effective });
     } else if (r.status === "mismatch") {
-      el.textContent = `✗ PDF says ${r.printed}`;
+      el.textContent = t("verify.mismatch", { time: r.printed });
       el.className = "badge unofficial";
-      el.title = `${r.source} · effective ${r.effective}`;
+      el.title = t("verify.sourceEffective", { source: r.source, date: r.effective });
     } else {
-      el.textContent = "no grid coverage";
+      el.textContent = t("verify.noCoverage");
       el.className = "muted";
-      el.title = "No downloaded official grid prints this train at this station.";
+      el.title = t("verify.noCoverageTitle");
     }
   } catch (_) {
-    el.textContent = "check failed";
+    el.textContent = t("verify.checkFailed");
     el.className = "muted";
   }
 }
@@ -2624,7 +2732,7 @@ function updateDistance() {
   const s = state.selected != null ? state.stops[state.selected] : null;
   const el = document.getElementById("selDistance");
   if (!s) return;
-  if (!state.user || s.lat == null) { el.textContent = "— (GPS off)"; return; }
+  if (!state.user || s.lat == null) { el.textContent = t("selected.gpsOff"); return; }
   const metres = haversine(state.user, [s.lat, s.lon]);
   el.textContent = metres < 1000 ? `${Math.round(metres)} m` : `${(metres/1000).toFixed(1)} km`;
 
@@ -2639,11 +2747,15 @@ function updateDistance() {
 }
 
 function fireProximityAlert(stop, metres) {
-  const text = `You are about ${(metres/1000).toFixed(1)} km from ${stop.name.fr}. Scheduled arrival ${stop.arrival_time}.`;
-  showBanner(`Proximity alert: ${text}`);
+  const text = t("proximity.about", {
+    km: (metres / 1000).toFixed(1),
+    station: stop.name.fr,
+    time: stop.arrival_time,
+  });
+  showBanner(t("proximity.alert", { text }));
   if (navigator.vibrate) navigator.vibrate([250,120,250,120,400]);
   if (state.notify && "Notification" in window && Notification.permission === "granted") {
-    new Notification("Approaching " + stop.name.fr, { body: text });
+    new Notification(t("proximity.approaching", { station: stop.name.fr }), { body: text });
   }
 }
 
@@ -2656,16 +2768,20 @@ function showBanner(text, ms = 9000) {
 }
 
 function humanCountdown(ms) {
-  if (ms <= 0) return "now";
+  if (ms <= 0) return t("time.now");
   const s = Math.round(ms / 1000);
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);
   const minutes = Math.floor((s % 3600) / 60);
   const seconds = s % 60;
-  if (days) return `${days}d ${hours}h ${minutes}m`;
-  if (hours) return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
-  if (minutes) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
-  return `${seconds}s`;
+  const d = t("time.dayShort");
+  const h = t("time.hourShort");
+  const m = t("time.minuteShort");
+  const sec = t("time.secondShort");
+  if (days) return `${days} ${d} ${hours} ${h} ${minutes} ${m}`;
+  if (hours) return `${hours} ${h} ${String(minutes).padStart(2, "0")} ${m} ${String(seconds).padStart(2, "0")} ${sec}`;
+  if (minutes) return `${minutes} ${m} ${String(seconds).padStart(2, "0")} ${sec}`;
+  return `${seconds} ${sec}`;
 }
 
 function offsetLabel(minutes) {
@@ -2675,7 +2791,7 @@ function offsetLabel(minutes) {
 }
 
 function localClock(epochMs) {
-  return new Date(epochMs).toLocaleTimeString([], {
+  return new Date(epochMs).toLocaleTimeString(localeTag(), {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -2688,11 +2804,12 @@ function renderTimezoneNote() {
   const morocco = state.moroccoOffset;
   if (morocco == null) { note.textContent = ""; return; }
   if (device === morocco) {
-    note.textContent = `Times are Morocco time (${offsetLabel(morocco)}).`;
+    note.textContent = t("next.tzNote", { offset: offsetLabel(morocco) });
   } else {
-    note.textContent =
-      `Times are Morocco time (${offsetLabel(morocco)}); your device is ${offsetLabel(device)}. ` +
-      `The countdown already accounts for the difference.`;
+    note.textContent = t("next.tzNoteDevice", {
+      morocco: offsetLabel(morocco),
+      device: offsetLabel(device),
+    });
   }
 }
 
@@ -2737,11 +2854,11 @@ function updateJourneyProgress(est) {
   fill.style.width = (fraction * 100).toFixed(1) + "%";
   pct.textContent = Math.round(fraction * 100) + "%";
   if (est.status === "at_station") {
-    where.textContent = "At " + (state.stops[est.station]?.name?.fr || "station");
+    where.textContent = t("status.at", { station: state.stops[est.station]?.name?.fr || t("map.station") });
   } else if (est.status === "not_departed") {
-    where.textContent = "Not departed";
+    where.textContent = t("progress.notDeparted");
   } else if (est.status === "arrived") {
-    where.textContent = "Arrived";
+    where.textContent = t("progress.arrived");
   } else if (est.leg != null && state.stops[est.leg] && state.stops[est.leg + 1]) {
     where.textContent = `${state.stops[est.leg].name.fr} → ${state.stops[est.leg + 1].name.fr}`;
   } else {
@@ -2758,7 +2875,10 @@ function updateRefreshInfo(now) {
   }
   const age = Math.max(0, Math.floor((now - state.lastRefresh) / 1000));
   const left = Math.max(0, Math.ceil((state.autoRefreshMs - (now - state.lastRefresh)) / 1000));
-  el.textContent = `updated ${age}s ago · auto ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  el.textContent = t("progress.updated", {
+    age,
+    left: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`,
+  });
 }
 
 function refreshJourney() {
@@ -2815,11 +2935,15 @@ function tick() {
   if (est) {
     badge.hidden = false;
     if (est.status === "at_station") {
-      const name = state.stops[est.station]?.name?.fr || "station";
-      badge.textContent = `At ${name} (scheduled)`;
+      const name = state.stops[est.station]?.name?.fr || t("map.station");
+      badge.textContent = t("progress.atScheduled", { station: name });
       badge.className = "badge unofficial";
     } else {
-      badge.textContent = { not_departed: "Not departed", running: "En route (estimated)", arrived: "Arrived" }[est.status] || est.status;
+      badge.textContent = {
+        not_departed: t("progress.notDeparted"),
+        running: t("progress.enRoute"),
+        arrived: t("progress.arrived"),
+      }[est.status] || est.status;
       badge.className = "badge " + (est.status === "running" ? "unofficial" : "");
     }
   }
@@ -2831,7 +2955,7 @@ function tick() {
       const stop = state.stops[event.index];
       const clock = event.kind === "arrival" ? stop.arrival_time : stop.departure_time;
       document.getElementById("nextName").textContent = stop.name.fr;
-      document.getElementById("nextMeta").textContent = `${event.kind} · ${stop.status_label}`;
+      document.getElementById("nextMeta").textContent = `${t("kind." + event.kind)} · ${localizedStatusLabel(stop.status_label)}`;
       document.getElementById("nextArr").textContent = clock || "--:--";
       const device = -new Date().getTimezoneOffset();
       document.getElementById("nextLocal").textContent =
@@ -2842,9 +2966,9 @@ function tick() {
     } else {
       const last = state.stops[state.stops.length - 1];
       document.getElementById("nextName").textContent = last.name.fr;
-      document.getElementById("nextMeta").textContent = "journey complete";
+      document.getElementById("nextMeta").textContent = t("next.journeyComplete");
       document.getElementById("nextArr").textContent = last.arrival_time || "--:--";
-      document.getElementById("nextCountdown").textContent = "arrived";
+      document.getElementById("nextCountdown").textContent = t("next.arrived");
     }
   }
 
@@ -2861,15 +2985,15 @@ function updateSelectedCountdown(now) {
   const s = state.stops[state.selected];
   if (!s) { el.textContent = "—"; return; }
   if (s.arrival_ms && now < s.arrival_ms) {
-    el.textContent = `arrives in ${humanCountdown(s.arrival_ms - now)}`;
+    el.textContent = t("selected.arrivesIn", { time: humanCountdown(s.arrival_ms - now) });
     return;
   }
   if (s.departure_ms && now < s.departure_ms) {
-    el.textContent = `departs in ${humanCountdown(s.departure_ms - now)}`;
+    el.textContent = t("selected.departsIn", { time: humanCountdown(s.departure_ms - now) });
     return;
   }
   if (s.arrival_ms || s.departure_ms) {
-    el.textContent = "passed";
+    el.textContent = t("selected.passed");
     return;
   }
   el.textContent = "—";
@@ -2892,27 +3016,29 @@ async function loadServices() {
   const summary = document.getElementById("selectedTrain");
   state.services = [];
   trainCombo.setOptions([]);
-  if (summary) summary.textContent = "No train selected yet — pick one above.";
+  state.servicesMeta = null;
+  if (summary) summary.textContent = t("search.noTrainSelected");
   if (!from || !to || !date) {
-    if (summary) summary.textContent = "Pick origin and destination to see trains.";
-    list.innerHTML = `<div class="svc-empty">Choose origin and destination.</div>`;
+    if (summary) summary.textContent = t("search.pickOrigin");
+    list.innerHTML = `<div class="svc-empty">${t("search.chooseBoth")}</div>`;
     status.textContent = "";
     return;
   }
-  list.innerHTML = `<div class="svc-empty">Loading services…</div>`;
+  list.innerHTML = `<div class="svc-empty">${t("search.loadingServices")}</div>`;
   status.textContent = "";
   try {
     const data = await fetchJson(`/api/services?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&date=${date}`);
     state.services = data.services || [];
     const fromCount = data.from?.codes?.length || 1;
     const toCount = data.to?.codes?.length || 1;
-    status.textContent = `${state.services.length} found · ${fromCount}→${toCount} stations`;
+    state.servicesMeta = { from: fromCount, to: toCount };
+    renderServicesMeta();
     renderServices();
     trainCombo.setOptions(state.services.map(s => ({
       value: s.train,
-      label: `Train ${s.train}`,
+      label: t("search.trainLabel", { train: s.train }),
       sub: `${s.product ? s.product + " · " : ""}${s.departure_time} → ${s.arrival_time} · ${s.duration_minutes ?? "—"} min`,
-      tag: s.direct ? "direct" : "connection",
+      tag: s.direct ? t("search.direct") : t("search.connection"),
     })));
     if (state.services.length) {
       const current = trainCombo.value;
@@ -2926,7 +3052,7 @@ async function loadServices() {
           state.services.find(s => s.departure_ms && s.departure_ms > now) ||
           state.services.find(s => s.direct) ||
           state.services[0];
-        trainCombo.setSelected({ value: preferred.train, label: `Train ${preferred.train}` });
+        trainCombo.setSelected({ value: preferred.train, label: t("search.trainLabel", { train: preferred.train }) });
         markService(preferred.train);
       }
     }
@@ -2935,16 +3061,28 @@ async function loadServices() {
       if (heading) heading.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   } catch (e) {
-    list.innerHTML = `<div class="svc-empty">Could not load services: ${e.message}</div>`;
+    list.innerHTML = `<div class="svc-empty">${t("search.loadError", { error: e.message })}</div>`;
     status.textContent = "";
-    if (summary) summary.textContent = "No train selected yet — pick one above.";
+    if (summary) summary.textContent = t("search.noTrainSelected");
   }
+}
+
+function renderServicesMeta() {
+  const status = document.getElementById("svcStatus");
+  if (!status) return;
+  status.textContent = state.servicesMeta
+    ? t("search.found", {
+        n: state.services.length,
+        from: state.servicesMeta.from,
+        to: state.servicesMeta.to,
+      })
+    : "";
 }
 
 function renderServices() {
   const list = document.getElementById("svcList");
   if (!state.services.length) {
-    list.innerHTML = `<div class="svc-empty">No service found for this date.</div>`;
+    list.innerHTML = `<div class="svc-empty">${t("search.noServices")}</div>`;
     return;
   }
   list.innerHTML = state.services.map(s => `
@@ -2953,15 +3091,20 @@ function renderServices() {
       <div>
         <div class="times mono"><span class="dep">${s.departure_time}</span> <span class="muted">→</span> ${s.arrival_time}</div>
         <div class="meta">${s.from_name} → ${s.to_name}</div>
-        <div class="meta">${s.duration_minutes ?? "—"} min · ${s.data_type.replaceAll("_"," ")}</div>
+        <div class="meta">${s.duration_minutes ?? "—"} min · ${{
+          scheduled_official: t("source.official"),
+          scheduled_unofficial: t("source.unofficial"),
+          mixed: t("source.mixed"),
+          sample: t("source.sample"),
+        }[s.data_type] || s.data_type}</div>
       </div>
-      <div class="tag">${s.direct ? "direct" : "connection"}</div>
+      <div class="tag">${s.direct ? t("search.direct") : t("search.connection")}</div>
     </div>`).join("");
   list.querySelectorAll(".svc").forEach(el => {
     const choose = () => {
       const svc = state.services.find(x => x.train === el.dataset.train);
       if (!svc) return;
-      trainCombo.setSelected({ value: svc.train, label: `Train ${svc.train}` });
+      trainCombo.setSelected({ value: svc.train, label: t("search.trainLabel", { train: svc.train }) });
       markService(svc.train);
     };
     el.onclick = choose;
@@ -2986,8 +3129,8 @@ function markService(train) {
   const summary = document.getElementById("selectedTrain");
   if (summary) {
     summary.innerHTML = svc
-      ? `<b>Train ${svc.train}</b> · ${svc.departure_time} → ${svc.arrival_time} · ${svc.duration_minutes ?? "—"} min · ${svc.direct ? "direct" : "connection"}`
-      : "No train selected yet — pick one above.";
+      ? `<b>${t("search.trainLabel", { train: svc.train })}</b> · ${svc.departure_time} → ${svc.arrival_time} · ${svc.duration_minutes ?? "—"} min · ${svc.direct ? t("search.direct") : t("search.connection")}`
+      : t("search.noTrainSelected");
   }
   if (picked && picked.scrollIntoView) picked.scrollIntoView({ block: "nearest" });
 }
@@ -2996,7 +3139,7 @@ let lastStops = [];
 async function loadJourney({ train, from, to, date, official, focusStop }) {
   const params = new URLSearchParams({ train, from, to, date, official: official || "" });
   const err = document.getElementById("formError");
-  err.textContent = "Loading…";
+  err.textContent = t("search.loading");
   try {
     const json = await fetchJson("/api/journey?" + params.toString());
     state.journeyToken += 1;
@@ -3018,7 +3161,7 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
     closeSearch();
 
     document.getElementById("trainChip").hidden = false;
-    document.getElementById("trainChip").textContent = "Train " + json.journey.service_label;
+    document.getElementById("trainChip").textContent = t("train.chip", { train: json.journey.service_label });
     const productChip = document.getElementById("productChip");
     if (json.journey.product) {
       productChip.hidden = false;
@@ -3058,7 +3201,7 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
       value: s.code,
       label: s.name.fr,
       sub: `#${s.sequence} · ${s.arrival ? s.arrival_time : "—"} / ${s.departure ? s.departure_time : "—"}`,
-      tag: s.status === "scheduled_official" ? "official" : "",
+      tag: s.status === "scheduled_official" ? t("traffic.official") : "",
     })));
 
     let idx = -1;
@@ -3087,7 +3230,7 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
     maybePromptOnboard();
     if (onboardTripMatchesCurrent()) setTimeout(onboardFocus, 800);
   } catch (e) {
-    err.textContent = "Error: " + e.message;
+    err.textContent = t("search.error", { error: e.message });
     openSearch();
   }
 }
@@ -3180,9 +3323,10 @@ function renderTripStatus(status) {
 
   const pct = Number.isFinite(status.fraction) ? Math.round(status.fraction * 100) : null;
   fill.style.width = pct == null ? "0%" : `${Math.max(0, Math.min(100, pct))}%`;
+  const asOf = status.as_of ? status.as_of.slice(11, 16) : "—";
   meta.textContent = pct == null
-    ? (status.as_of ? `Updated ${status.as_of.slice(11, 16)} UTC` : "")
-    : `${pct}% · updated ${status.as_of ? status.as_of.slice(11, 16) : "—"} UTC`;
+    ? (status.as_of ? t("status.updated", { time: asOf }) : "")
+    : t("status.updatedWithPct", { pct, time: asOf });
 
   const notices = status.advisories || [];
   if (notices.length) {
@@ -3308,7 +3452,7 @@ async function voteReport(id, vote) {
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
     await loadTripStatus(true);
   } catch (e) {
-    showBanner("Could not record vote: " + e.message, 4000);
+    showBanner(t("report.voteError", { error: e.message }), 4000);
   } finally {
     state.votingReports.delete(id);
     await loadReports();
@@ -3403,7 +3547,7 @@ async function submitReport(event) {
     : null;
   if (kind === "departure_delay" && (!Number.isInteger(minutes) || minutes < 1 || minutes > 600)) {
     const input = document.getElementById("reportMinutes");
-    input.setCustomValidity("Enter a delay between 1 and 600 minutes.");
+    input.setCustomValidity(t("report.minutesError"));
     input.reportValidity();
     input.setCustomValidity("");
     return;
@@ -3429,7 +3573,7 @@ async function submitReport(event) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
     closeReportDialog();
-    showBanner("Report sent. It is visible to other users as unverified.", 5000);
+    showBanner(t("report.sent"), 5000);
     await loadReports();
     await loadTripStatus(true);
   } catch (e) {
@@ -3484,10 +3628,7 @@ function activateOnboard() {
   updateOnboardUi();
   loadTripStatus(true);
   setTimeout(onboardFocus, 350);
-  showBanner(
-    `Following train ${q.train}. The map follows the timetable estimate, not GPS.`,
-    5500,
-  );
+  showBanner(t("onboard.following", { train: q.train }), 5500);
 }
 
 function leaveOnboard() {
@@ -3495,7 +3636,7 @@ function leaveOnboard() {
   state.onboardPromptReady = false;
   localStorage.removeItem("oncf:onboard");
   updateOnboardUi();
-  showBanner("Trip mode off. The map is free to move again.", 3500);
+  showBanner(t("onboard.off"), 3500);
 }
 
 function maybePromptOnboard() {
@@ -3510,7 +3651,7 @@ function maybePromptOnboard() {
   if (text) {
     text.textContent = t("status.prompt", {
       distance: formatDistance(metres),
-      station: origin.name?.fr || "the boarding station",
+      station: origin.name?.fr || t("map.station"),
     });
   }
   updateOnboardUi();
@@ -3611,7 +3752,7 @@ function renderDestinations(data) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "dest-item";
-    button.title = `Open ${item.name} on train ${item.train}`;
+    button.title = t("dest.open", { name: item.name, train: item.train });
 
     const name = document.createElement("span");
     name.className = "dest-name";
@@ -3621,7 +3762,7 @@ function renderDestinations(data) {
     sub.className = "dest-sub";
     sub.textContent = [
       item.departure_time || "",
-      item.train ? `train ${item.train}` : "",
+      item.train ? t("dest.train", { train: item.train }) : "",
       item.product || "",
       item.duration_minutes != null ? `${item.duration_minutes} min` : "",
     ].filter(Boolean).join(" · ");
@@ -3682,7 +3823,7 @@ async function loadPunctuality() {
     note.textContent = t("punct.note");
     body.append(headline, detail, note);
   } catch (_) {
-    body.textContent = "Punctuality log unavailable.";
+    body.textContent = t("punct.unavailable");
   }
 }
 
@@ -3694,9 +3835,9 @@ const placeOptions = async (term) => {
         value: p.value,
         label: p.name,
         sub: p.disabled
-          ? "City · no station in ONCF's catalogue"
-          : `City · ${p.station_count} stations${p.stations?.length ? " · " + p.stations.slice(0, 3).join(", ") : ""}`,
-        tag: p.disabled ? "no station" : "city",
+          ? t("search.cityNoStation")
+          : t("search.cityStations", { n: p.station_count }) + (p.stations?.length ? " · " + p.stations.slice(0, 3).join(", ") : ""),
+        tag: p.disabled ? t("search.noStationTag") : t("search.cityTag"),
         disabled: !!p.disabled,
       }
     : {
@@ -3708,24 +3849,29 @@ const placeOptions = async (term) => {
 };
 
 const fromCombo = new Combobox(document.getElementById("fromCombo"), {
-  placeholder: "City or station, e.g. Casablanca or Casa Voyageurs",
+  placeholder: t("search.placeholderFrom"),
   getOptions: placeOptions,
   onSelect: () => { stopCombo.setValue(""); stopCombo.setOptions([]); loadServices(); },
 });
 const toCombo = new Combobox(document.getElementById("toCombo"), {
-  placeholder: "City or station, e.g. Rabat or Oujda",
+  placeholder: t("search.placeholderTo"),
   getOptions: placeOptions,
   onSelect: () => { stopCombo.setValue(""); stopCombo.setOptions([]); loadServices(); },
 });
 const trainCombo = new Combobox(document.getElementById("trainCombo"), {
-  placeholder: "Train number",
+  placeholder: t("search.placeholderTrain"),
   getOptions: async (term) => (state.services || [])
     .filter(s => !term || s.train.toLowerCase().includes(term.toLowerCase()))
-    .map(s => ({ value: s.train, label: `Train ${s.train}`, sub: `${s.departure_time} → ${s.arrival_time}`, tag: s.direct ? "direct" : "connection" })),
+    .map(s => ({
+      value: s.train,
+      label: t("search.trainLabel", { train: s.train }),
+      sub: `${s.departure_time} → ${s.arrival_time}`,
+      tag: s.direct ? t("search.direct") : t("search.connection"),
+    })),
   onSelect: () => {},
 });
 const stopCombo = new Combobox(document.getElementById("stopCombo"), {
-  placeholder: "Optional: refresh one station from ONCF",
+  placeholder: t("search.placeholderStop"),
   getOptions: async (term) => lastStops
     .filter(s => !term || s.name.fr.toLowerCase().includes(term.toLowerCase()) || s.code.includes(term))
     .map(s => ({ value: s.code, label: s.name.fr, sub: `#${s.sequence}`, tag: s.status === "scheduled_official" ? "official" : "" })),
@@ -3737,11 +3883,11 @@ const stationOptions = async (term) => {
     value: s.code,
     label: s.name,
     sub: `${s.code}${s.ar ? " · " + s.ar : ""}`,
-    tag: "station",
+    tag: t("search.stationTag"),
   }));
 };
 const departureCombo = new Combobox(document.getElementById("departureCombo"), {
-  placeholder: "Station code or name",
+  placeholder: t("search.placeholderStation"),
   getOptions: stationOptions,
   onSelect: () => {
     if (departureCombo.value) localStorage.setItem("oncf:liveStation", departureCombo.value);
@@ -3813,14 +3959,19 @@ document.getElementById("quickNear").onclick = async (event) => {
   const button = event.currentTarget;
   const label = button.textContent;
   button.disabled = true;
-  button.textContent = "📍 Locating…";
+  button.textContent = t("nearest.locatingButton");
   try {
     if (!state.user) await getPositionOnce();
     renderNearest();
     const near = nearestStation();
-    if (near) showBanner(`Nearest station: ${near.station.name} (${formatDistance(near.metres)} away).`, 4500);
+    if (near) {
+      showBanner(t("nearest.found", {
+        station: near.station.name,
+        distance: formatDistance(near.metres),
+      }), 4500);
+    }
   } catch (error) {
-    showBanner("Could not get your location: " + error.message, 5000);
+    showBanner(t("location.error", { error: error.message }), 5000);
   } finally {
     button.disabled = false;
     button.textContent = label;
@@ -3861,13 +4012,12 @@ dateInput.onchange = () => { syncDateChips(); loadServices(); };
 
 document.getElementById("loadBtn").onclick = async () => {
   const from = fromCombo.value, to = toCombo.value, train = trainCombo.value;
-  if (!from) { document.getElementById("formError").textContent = "Choose a departure station."; return; }
-  if (!to) { document.getElementById("formError").textContent = "Choose an arrival station."; return; }
-  if (!dateInput.value) { document.getElementById("formError").textContent = "Choose a date."; return; }
-  if (!train) { document.getElementById("formError").textContent = "Choose a train (or type one)."; return; }
+  if (!from) { document.getElementById("formError").textContent = t("search.departureStation"); return; }
+  if (!to) { document.getElementById("formError").textContent = t("search.arrivalStation"); return; }
+  if (!dateInput.value) { document.getElementById("formError").textContent = t("search.date"); return; }
+  if (!train) { document.getElementById("formError").textContent = t("search.train"); return; }
   if (train.includes("+")) {
-    document.getElementById("formError").textContent =
-      "That is a connection (two trains). Pick a direct train to see its stop list.";
+    document.getElementById("formError").textContent = t("search.connectionError");
     return;
   }
   await loadJourney({
@@ -3890,15 +4040,21 @@ document.getElementById("refreshOfficialBtn").onclick = async () => {
     official,
     focusStop: official,
   };
-  showBanner("Refreshing from ONCF…", 4000);
+  showBanner(t("status.refreshing"), 4000);
   await loadJourney(params);
 };
 
 document.getElementById("copyBtn").onclick = async () => {
   const s = state.stops[state.selected];
   if (!s) return;
-  const text = `${s.name.fr} — arrive ${s.arrival ? s.arrival_time : "—"}, depart ${s.departure ? s.departure_time : "—"}, stop ${s.duration_label} (${s.status_label})`;
-  try { await navigator.clipboard.writeText(text); showBanner("Copied: " + text, 4000); }
+  const text = t("copy.stopText", {
+    station: s.name.fr,
+    arrival: s.arrival ? s.arrival_time : "—",
+    departure: s.departure ? s.departure_time : "—",
+    stop: s.duration_label,
+    status: localizedStatusLabel(s.status_label),
+  });
+  try { await navigator.clipboard.writeText(text); showBanner(t("copy.copied", { text }), 4000); }
   catch { showBanner(text, 6000); }
 };
 
@@ -3907,18 +4063,18 @@ document.getElementById("copyBtn").onclick = async () => {
 /* ------------------------------------------------------------------ */
 function enableGps({ fly = false } = {}) {
   const badge = document.getElementById("gpsBadge");
-  if (!navigator.geolocation) { badge.textContent = "GPS unavailable"; return; }
+  if (!navigator.geolocation) { badge.textContent = t("gps.unavailableError"); return; }
   if (fly) state.pendingLocate = true;
   if (state.watchId != null) return;
-  badge.textContent = "GPS: requesting…";
+  badge.textContent = t("gps.requesting");
   state.watchId = navigator.geolocation.watchPosition(
     applyUserPosition,
     (err) => {
       state.pendingLocate = false;
-      badge.textContent = "GPS: " + (err.code === 1 ? "permission denied" : "unavailable");
+      badge.textContent = err.code === 1 ? t("gps.permissionDenied") : t("gps.unavailable");
       badge.className = "badge";
       const locate = document.getElementById("locateBtn");
-      if (locate) locate.textContent = "Retry GPS";
+      if (locate) locate.textContent = t("gps.retry");
     },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
   );
@@ -3948,18 +4104,16 @@ document.getElementById("gridRefresh").onclick = async () => {
   const button = document.getElementById("gridRefresh");
   const original = button.textContent;
   button.disabled = true;
-  button.textContent = "Checking…";
+  button.textContent = t("grid.checking");
   try {
     const data = await fetchJson("/api/grids/refresh");
     showBanner(
-      data.started
-        ? "Checking the official timetable PDFs in the background…"
-        : "A timetable check is already running.",
+      data.started ? t("grid.refreshStarted") : t("grid.refreshRunning"),
       5000
     );
     setTimeout(loadGridStatus, 3000);
   } catch (error) {
-    showBanner("Timetable check failed: " + error.message, 7000);
+    showBanner(t("grid.checkFailed", { error: error.message }), 7000);
   } finally {
     button.disabled = false;
     button.textContent = original;
@@ -4078,7 +4232,7 @@ function renderFind() {
     })
     .slice(0, 8);
   if (!hits.length) {
-    findResults.innerHTML = '<div class="combo-empty">No station matches</div>';
+    findResults.innerHTML = `<div class="combo-empty">${t("map.noStationMatches")}</div>`;
   } else {
     findResults.innerHTML = hits.map((s) => `
       <button type="button" data-code="${escapeHtml(s.code)}">
@@ -4123,7 +4277,7 @@ fullBtn.onclick = () => {
 document.addEventListener("fullscreenchange", () => {
   const active = !!document.fullscreenElement;
   fullBtn.textContent = active ? "⤢" : "⛶";
-  fullBtn.title = active ? "Exit full screen" : "Full screen";
+  fullBtn.title = active ? t("fullscreen.exit") : t("map.fullScreen");
   setTimeout(() => map.invalidateSize(), 180);
 });
 
@@ -4150,12 +4304,12 @@ function setEngine(name, persist = true) {
   }
 
   if (name === "mapbox") {
-    const token = localStorage.getItem("oncf:mapboxToken") || window.prompt("Mapbox public access token (pk.…)");
+    const token = localStorage.getItem("oncf:mapboxToken") || window.prompt(t("places.tokenMapbox"));
     if (!token) { engineSelect.value = currentEngine; return; }
     localStorage.setItem("oncf:mapboxToken", token);
   }
   if (name === "google") {
-    const key = localStorage.getItem("oncf:googleKey") || window.prompt("Google Maps API key");
+    const key = localStorage.getItem("oncf:googleKey") || window.prompt(t("places.tokenGoogle"));
     if (!key) { engineSelect.value = currentEngine; return; }
     localStorage.setItem("oncf:googleKey", key);
   }
@@ -4179,7 +4333,7 @@ function setEngine(name, persist = true) {
       if (state.user) VectorMap.setUser(state.user[0], state.user[1]);
       if (state.selected != null) VectorMap.selectStop(state.selected, false);
     } catch (error) {
-      showBanner("3D map unavailable (" + error.message + "), using Classic.");
+      showBanner(t("map.fallback3d", { error: error.message }));
       setEngine("classic", false);
     }
   } else if (name === "mapbox") {
@@ -4191,7 +4345,7 @@ function setEngine(name, persist = true) {
         if (state.user) MapboxEngine.setUser(state.user[0], state.user[1]);
       })
       .catch((error) => {
-        showBanner("Mapbox failed: " + error.message + " — using 3D map.");
+        showBanner(t("map.fallbackMapbox", { error: error.message }));
         setEngine("vector", false);
       });
   } else if (name === "google") {
@@ -4202,7 +4356,7 @@ function setEngine(name, persist = true) {
         if (state.user) GoogleEngine.setUser(state.user[0], state.user[1]);
       })
       .catch((error) => {
-        showBanner("Google Maps failed: " + error.message + " — using 3D map.");
+        showBanner(t("map.fallbackGoogle", { error: error.message }));
         setEngine("vector", false);
       });
   } else {
@@ -4221,8 +4375,8 @@ function syncPlacesButton() {
   const supported = currentEngine === "vector" && !["night", "satellite", "positron", "fiord"].includes(style);
   placesButton.classList.toggle("active", supported && placesVisible);
   placesButton.title = supported
-    ? "Show cafés, restaurants and landmarks"
-    : "Places are on the Liberty style — click to switch";
+    ? t("places.title")
+    : t("places.unavailable");
 }
 
 placesButton.onclick = () => {
@@ -4240,7 +4394,7 @@ placesButton.onclick = () => {
     else VectorMap.setBasemap("liberty");
     if (window.VectorMap) VectorMap.setPlacesVisible(true);
     syncPlacesButton();
-    showBanner("Places on: switched to the Liberty style. Major places appear from zoom 12.", 5000);
+    showBanner(t("places.on"), 5000);
     return;
   }
 
@@ -4249,9 +4403,7 @@ placesButton.onclick = () => {
   VectorMap.setPlacesVisible(placesVisible);
   syncPlacesButton();
   showBanner(
-    placesVisible
-      ? "Places on: major places from zoom 12; cafés and shops at street level."
-      : "Places hidden.",
+    placesVisible ? t("places.onDetail") : t("places.off"),
     4500
   );
 };
@@ -4264,15 +4416,109 @@ document.getElementById("radius").oninput = (e) => {
   document.getElementById("radiusLabel").textContent = e.target.value + " km";
 };
 document.getElementById("alertBtn").onclick = async () => {
-  if (state.selected == null) { showBanner("Select a station first."); return; }
+  if (state.selected == null) { showBanner(t("proximity.selectStation")); return; }
   if (!state.user) enableGps();
   if ("Notification" in window && Notification.permission === "default") {
     try { await Notification.requestPermission(); } catch (_) {}
   }
   state.notify = "Notification" in window && Notification.permission === "granted";
   state.alertArmed = true; state.alertInside = false;
-  showBanner(`Proximity alert armed: vibrate within ${state.alertRadius/1000} km of ${state.stops[state.selected].name.fr}. This uses your GPS, not train tracking.`);
+  showBanner(t("proximity.armed", {
+    km: state.alertRadius / 1000,
+    station: state.stops[state.selected].name.fr,
+  }));
 };
+
+/* ------------------------------------------------------------------ */
+/* Localization refresh                                               */
+/* ------------------------------------------------------------------ */
+function updateComboPlaceholders() {
+  if (typeof fromCombo !== "undefined") fromCombo.input.placeholder = t("search.placeholderFrom");
+  if (typeof toCombo !== "undefined") toCombo.input.placeholder = t("search.placeholderTo");
+  if (typeof trainCombo !== "undefined") trainCombo.input.placeholder = t("search.placeholderTrain");
+  if (typeof stopCombo !== "undefined") stopCombo.input.placeholder = t("search.placeholderStop");
+  if (typeof departureCombo !== "undefined") departureCombo.input.placeholder = t("search.placeholderStation");
+  document.querySelectorAll(".combo .clear").forEach((button) => {
+    button.setAttribute("aria-label", t("search.clear"));
+  });
+}
+
+function refreshMapLocale() {
+  document.querySelectorAll(".journey-end").forEach((el) => {
+    const label = el.querySelector(".journey-end-role");
+    if (label) label.textContent = el.classList.contains("origin") ? t("map.start") : t("map.end");
+  });
+  if (state.trainMarker && typeof state.trainMarker.getTooltip === "function" && state.trainMarker.getTooltip()) {
+    state.trainMarker.setTooltipContent(t("map.scheduledEstimate"));
+  }
+}
+
+function refreshLocalizedUi() {
+  updateComboPlaceholders();
+  updateNetworkStats();
+  updateRouteLegend();
+  refreshMapLocale();
+  updateOnboardUi();
+  renderSourceBadge();
+  const trainChip = document.getElementById("trainChip");
+  if (trainChip && state.data) {
+    trainChip.textContent = t("train.chip", { train: state.data.journey.service_label });
+  }
+  renderNearest();
+
+  const badge = document.getElementById("gpsBadge");
+  if (badge) {
+    if (state.user && state.gpsAccuracy != null) {
+      badge.textContent = t("gps.live", { accuracy: Math.round(state.gpsAccuracy) });
+      badge.className = "badge live";
+    } else if (state.watchId != null) {
+      badge.textContent = t("gps.locating");
+    } else {
+      badge.textContent = t("gps.off");
+    }
+  }
+  const locate = document.getElementById("locateBtn");
+  if (locate) locate.textContent = state.user ? t("gps.liveShort") : t("gps.enable");
+
+  if (state.trafficData) renderTraffic(state.trafficData);
+  if (state.departuresData) renderDepartures(state.departuresData);
+  if (state.gridData) renderGridStatus(state.gridData);
+
+  if (state.services.length) {
+    renderServicesMeta();
+    renderServices();
+    if (trainCombo.value) {
+      const chosenService = state.services.find((service) => service.train === trainCombo.value);
+      if (chosenService) {
+        trainCombo.setSelected({
+          value: chosenService.train,
+          label: t("search.trainLabel", { train: chosenService.train }),
+        });
+      }
+      markService(trainCombo.value);
+    }
+  } else {
+    renderServicesMeta();
+    const summary = document.getElementById("selectedTrain");
+    if (summary) summary.textContent = t("search.noTrainSelected");
+  }
+
+  if (state.data) {
+    renderTimezoneNote();
+    renderJourneyMeta();
+    renderTripNotice();
+    renderStops();
+    if (state.selected != null) {
+      renderSelectedCard();
+      updateSelectedCountdown(Date.now());
+      const stop = state.stops[state.selected];
+      if (stop) verifyPdf(stop, state.selected);
+    }
+    tick();
+  }
+
+  if (document.getElementById("sourcesCard")?.open) loadSources(true);
+}
 
 /* ------------------------------------------------------------------ */
 /* Boot                                                               */
@@ -4365,8 +4611,12 @@ document.getElementById("destinationsRefresh").addEventListener("click", loadDes
 initReportValidity();
 const langSelect = document.getElementById("uiLang");
 langSelect.value = currentLang();
-langSelect.addEventListener("change", () => applyLanguage(langSelect.value));
+langSelect.addEventListener("change", () => {
+  applyLanguage(langSelect.value);
+  refreshLocalizedUi();
+});
 applyLanguage(currentLang());
+refreshLocalizedUi();
 setInterval(loadPunctuality, 60000);
 
 animateTrain();

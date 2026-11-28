@@ -7,6 +7,8 @@
 (function () {
   "use strict";
 
+  const tr = (key, fallback) => (typeof t === "function" ? t(key) : fallback);
+
   const MOROCCO_BOUNDS = [
     [-17.2, 20.7],
     [-1.0, 35.95],
@@ -304,7 +306,7 @@
       if (!map) return;
       if (!userMarker) {
         userMarker = new google.maps.Marker({
-          position: { lat, lng: lon }, map, title: "You",
+          position: { lat, lng: lon }, map, title: tr("map.you", "You"),
           icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#4c9aff", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
         });
       } else userMarker.setPosition({ lat, lng: lon });
@@ -316,7 +318,7 @@
       if (!map) return;
       if (!trainMarker) {
         trainMarker = new google.maps.Marker({
-          position: { lat: point[0], lng: point[1] }, map, title: "Scheduled estimate",
+          position: { lat: point[0], lng: point[1] }, map, title: tr("map.scheduledEstimateShort", "Scheduled estimate"),
           icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#f0a02a", fillOpacity: 1, strokeColor: "#1a1206", strokeWeight: 2 },
         });
       } else trainMarker.setPosition({ lat: point[0], lng: point[1] });

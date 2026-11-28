@@ -108,9 +108,10 @@ board delay takes precedence when the train is still at the origin.
 ## Languages
 
 The UI language selector supports **English, Français and العربية**. The choice
-is stored in `oncf:lang`; Arabic switches the document to RTL. Reports, trip
-status, onboarding, direct destinations and punctuality are translated; station
-names remain French/Arabic as published.
+is stored in `oncf:lang`; Arabic switches the document to RTL. All UI chrome,
+labels, dates, counts and error/banner messages are translated (including the
+static map controls and dynamic panels). Official ONCF notice bodies, community
+report messages and station names remain in their published language.
 
 ## I'm on this trip
 

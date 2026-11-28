@@ -8,6 +8,8 @@
 (function () {
   "use strict";
 
+  const tr = (key, fallback) => (typeof t === "function" ? t(key) : fallback);
+
   // MapLibre needs this plugin to shape Arabic: without it the letters are
   // drawn disconnected and in visual order. Lazy loading only fetches it when
   // an RTL label is first rendered. Free, no key.
@@ -165,7 +167,7 @@
         const feature = event.features && event.features[0];
         if (!feature) return;
         const p = feature.properties || {};
-        const name = p.name || p["name:fr"] || p["name:latin"] || p["name:en"] || "Place";
+        const name = p.name || p["name:fr"] || p["name:latin"] || p["name:en"] || tr("map.place", "Place");
         const kind = [p.class, p.subclass].filter(Boolean).join(" · ");
         const el = document.createElement("div");
         const title = document.createElement("div");
@@ -456,7 +458,7 @@
       if (!feature) return;
       const p = feature.properties;
       const note = p.approximate
-        ? '<div style="color:#8b98a9;font-size:11px;margin-top:4px">Coach route — straight-line approximation</div>'
+        ? `<div style="color:#8b98a9;font-size:11px;margin-top:4px">${tr("map.coachApprox", "Coach route — straight-line approximation")}</div>`
         : "";
       new maplibregl.Popup({ closeButton: true })
         .setLngLat(event.lngLat)
@@ -621,9 +623,9 @@
       element.className = "journey-end " + role;
       const label = document.createElement("span");
       label.className = "journey-end-role";
-      label.textContent = role === "origin" ? "Start" : "End";
+      label.textContent = role === "origin" ? tr("map.start", "Start") : tr("map.end", "End");
       const name = document.createElement("span");
-      name.textContent = (stop.name && (stop.name.fr || stop.name)) || "Station";
+      name.textContent = (stop.name && (stop.name.fr || stop.name)) || tr("map.station", "Station");
       element.append(label, name);
       journeyEndMarkers.push(
         new maplibregl.Marker({ element, anchor: "bottom", offset: [0, -18] })
