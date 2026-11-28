@@ -11,6 +11,7 @@ remote service later without changing the HTTP/UI contract.
 from __future__ import annotations
 
 import json
+import re
 import threading
 import uuid
 from datetime import date as date_type
@@ -31,6 +32,7 @@ MAX_MESSAGE = 280
 MAX_TRAIN = 24
 MAX_STATION = 24
 MAX_REPORTS = 2000
+CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 
 
 class ReportRateLimited(RuntimeError):
@@ -84,7 +86,12 @@ class ReportStore:
             value = value.replace(tzinfo=UTC)
         return value
 
-    def _public(self, report: dict[str, Any], now: datetime) -> dict[str, Any]:
+    def _public(
+        self,
+        report: dict[str, Any],
+        now: datetime,
+        client_id: str | None = None,
+    ) -> dict[str, Any]:
         expiry = self._parse_expiry(report)
         active = expiry is not None and expiry > now
         try:
@@ -97,12 +104,22 @@ class ReportStore:
         expires_in = (
             max(0, int((expiry - now).total_seconds() // 60)) if expiry else None
         )
+        votes = report.get("votes") if isinstance(report.get("votes"), dict) else {}
+        payload = {key: value for key, value in report.items() if key != "votes"}
         return {
-            **report,
+            **payload,
             "active": active,
             "age_minutes": age,
             "expires_in_minutes": expires_in,
+            "my_vote": votes.get(client_id) if client_id else None,
         }
+
+    @staticmethod
+    def _clean_client(client_id: str | None) -> str:
+        text = str(client_id or "").strip()
+        if not CLIENT_ID_RE.fullmatch(text):
+            raise ValueError("client_id must be 8-64 letters, digits, '-' or '_'")
+        return text
 
     # --- validation -----------------------------------------------------
     @staticmethod
@@ -178,6 +195,7 @@ class ReportStore:
             "expires_at": (now + ttl).isoformat(),
             "confirmations": 0,
             "disputes": 0,
+            "votes": {},
         }
         with self._lock:
             reports = self._load()
@@ -192,8 +210,10 @@ class ReportStore:
         station: str | None = None,
         date: str | None = None,
         active_only: bool = True,
+        client_id: str | None = None,
     ) -> list[dict[str, Any]]:
         now = self._current()
+        client = self._clean_client(client_id) if client_id else None
         train_key = str(train or "").strip().upper()
         station_key = str(station or "").strip().upper()
         with self._lock:
@@ -206,27 +226,46 @@ class ReportStore:
                 continue
             if date and report.get("date") != date:
                 continue
-            item = self._public(report, now)
+            item = self._public(report, now, client)
             if active_only and not item["active"]:
                 continue
             out.append(item)
         out.sort(key=lambda item: str(item.get("created_at") or ""), reverse=True)
         return out
 
-    def vote(self, report_id: str, vote: str) -> dict[str, Any]:
+    def vote(
+        self,
+        report_id: str,
+        vote: str,
+        *,
+        client_id: str | None = None,
+    ) -> dict[str, Any]:
         choice = str(vote or "").strip().lower()
         if choice not in {"confirm", "dispute"}:
             raise ValueError("vote must be 'confirm' or 'dispute'")
+        client = self._clean_client(client_id)
         now = self._current()
         with self._lock:
             reports = self._load()
             for report in reports:
                 if report.get("id") != report_id:
                     continue
+                votes = report.setdefault("votes", {})
+                if not isinstance(votes, dict):
+                    votes = {}
+                    report["votes"] = votes
+                previous = votes.get(client)
+                if previous == choice:
+                    return self._public(report, now, client)
+                if previous == "confirm":
+                    report["confirmations"] = max(0, int(report.get("confirmations") or 0) - 1)
+                elif previous == "dispute":
+                    report["disputes"] = max(0, int(report.get("disputes") or 0) - 1)
                 key = "confirmations" if choice == "confirm" else "disputes"
                 report[key] = int(report.get(key) or 0) + 1
+                votes[client] = choice
                 self._save(reports)
-                return self._public(report, now)
+                return self._public(report, now, client)
         raise KeyError(report_id)
 
     def active_for_trip(self, train: str, date: str | None) -> list[dict[str, Any]]:

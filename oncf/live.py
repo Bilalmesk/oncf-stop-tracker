@@ -601,6 +601,7 @@ class LiveApp:
         station: str | None = None,
         date: str | None = None,
         active_only: bool = True,
+        client_id: str | None = None,
     ) -> dict:
         return {
             "reports": self.reports.list(
@@ -608,6 +609,7 @@ class LiveApp:
                 station=station,
                 date=date,
                 active_only=active_only,
+                client_id=client_id,
             )
         }
 
@@ -631,8 +633,13 @@ class LiveApp:
             self._report_last_by_ip[client_ip] = time.monotonic()
         return report
 
-    def vote_report(self, report_id: str, vote: str) -> dict:
-        return self.reports.vote(report_id, vote)
+    def vote_report(
+        self,
+        report_id: str,
+        vote: str,
+        client_id: str | None = None,
+    ) -> dict:
+        return self.reports.vote(report_id, vote, client_id=client_id)
 
     def services(self, origin: str, destination: str, travel_date: date) -> dict:
         """Parsed service list used to autofill the train field."""
@@ -715,6 +722,9 @@ def make_handler(app: LiveApp):
                 return
             if parsed.path == "/mapextra.js":
                 self._send_file(WEB_DIR / "mapextra.js", "application/javascript; charset=utf-8")
+                return
+            if parsed.path == "/i18n.js":
+                self._send_file(WEB_DIR / "i18n.js", "application/javascript; charset=utf-8")
                 return
             if parsed.path == "/api/health":
                 self._send_json(
@@ -931,7 +941,10 @@ def make_handler(app: LiveApp):
                         date=(query.get("date") or [None])[0],
                         active_only=(query.get("active") or ["1"])[0].lower()
                         in {"1", "true", "yes"},
+                        client_id=(query.get("client_id") or [None])[0],
                     )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
                 except Exception as exc:
                     self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
                 else:
@@ -1011,7 +1024,11 @@ def make_handler(app: LiveApp):
                     self._send_json({"error": "report id is required"}, 400)
                     return
                 try:
-                    report = app.vote_report(report_id, str(payload.get("vote") or ""))
+                    report = app.vote_report(
+                        report_id,
+                        str(payload.get("vote") or ""),
+                        client_id=payload.get("client_id"),
+                    )
                 except ValueError as exc:
                     self._send_json({"error": str(exc)}, 422)
                 except KeyError as exc:

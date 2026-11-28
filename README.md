@@ -31,6 +31,7 @@ a separate private repository.
   installation has actually seen.
 - **Community reports** — travellers can report a cancellation or departure
   delay, confirm/dispute others, all marked unverified.
+- **English / French / Arabic UI** — language selector with RTL Arabic.
 - **Journey planner** — city or station autocomplete, popular routes, nearest
   station, recent routes, direct-train preselection.
 - **Selected trip ribbon** — white/amber glowing route, animated direction
@@ -86,19 +87,29 @@ The **Report a problem** button opens a native dialog for:
 - **Other**.
 
 Reports are stored locally in `data/reports/reports.json` (not committed), shown
-next to the trip, and can be **confirmed** or **disputed** by other users. They
-are explicitly **unverified community observations**, not official ONCF
-cancellations. The API is:
+next to the trip, and can be **confirmed** or **disputed**. Each browser gets a
+random anonymous client id (`oncf:clientId`); the server keeps **one vote per
+client per report**. Repeating the same vote is idempotent, and switching from
+confirm to dispute moves the count instead of incrementing both. Buttons are
+disabled while a vote is in flight. They are explicitly **unverified community
+observations**, not official ONCF cancellations. The API is:
 
 ```text
-GET  /api/reports?train=MA&date=2026-11-27
+GET  /api/reports?train=MA&date=2026-11-27&client_id=...
 POST /api/reports
-POST /api/reports/{id}/vote
+POST /api/reports/{id}/vote   {"vote":"confirm","client_id":"..."}
 ```
 
 A cancellation report adds an advisory but does not overwrite the timetable
 status. A delay report shifts the estimate and is labelled `community`; a live
 board delay takes precedence when the train is still at the origin.
+
+## Languages
+
+The UI language selector supports **English, Français and العربية**. The choice
+is stored in `oncf:lang`; Arabic switches the document to RTL. Reports, trip
+status, onboarding, direct destinations and punctuality are translated; station
+names remain French/Arabic as published.
 
 ## I'm on this trip
 
@@ -241,11 +252,11 @@ See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
 python -m pytest -q
 ```
 
-144 tests cover stop calculations, timezone quirks, GTFS, live departure
+149 tests cover stop calculations, timezone quirks, GTFS, live departure
 parsing/caching, route-shape fallback, works notices, trip status, community
-reports, direct destinations, punctuality logging, the local API contract and
-source health. Tests that require official fixtures skip automatically when the
-fixtures are absent.
+reports and vote idempotence, direct destinations, punctuality logging, the
+local API contract and source health. Tests that require official fixtures skip
+automatically when the fixtures are absent.
 
 ## Project layout
 
@@ -261,6 +272,7 @@ oncf/
   names.py          display-only GTFS station/route cleanup
   punctuality.py    append-only live-board observations + KPIs
   live.py           local HTTP server + UI
+  web/i18n.js       English / French / Arabic UI strings
   web/              MapLibre/Leaflet map, live panel, Night style
 docs/
   MAP_RESEARCH.md   key-free map stack survey

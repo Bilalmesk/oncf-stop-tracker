@@ -42,8 +42,8 @@ class FakeApp:
         self.calls.append(("add_report", payload, client_ip))
         return {"id": "new123", **payload, "active": True}
 
-    def vote_report(self, report_id, vote):
-        self.calls.append(("vote_report", report_id, vote))
+    def vote_report(self, report_id, vote, client_id=None):
+        self.calls.append(("vote_report", report_id, vote, client_id))
         return {"id": report_id, "confirmations": 1}
 
 
@@ -110,12 +110,14 @@ def test_create_report_route(fake_server):
 def test_vote_report_route(fake_server):
     app, base = fake_server
     response = requests.post(
-        base + "/api/reports/abc123/vote", json={"vote": "confirm"}, timeout=5
+        base + "/api/reports/abc123/vote",
+        json={"vote": "confirm", "client_id": "client-aaa"},
+        timeout=5,
     )
 
     assert response.status_code == 200
     assert response.json()["confirmations"] == 1
-    assert app.calls[0] == ("vote_report", "abc123", "confirm")
+    assert app.calls[0] == ("vote_report", "abc123", "confirm", "client-aaa")
 
 
 def test_invalid_json_is_rejected(fake_server):

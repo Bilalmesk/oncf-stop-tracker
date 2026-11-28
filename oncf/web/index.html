@@ -48,6 +48,8 @@
   .btn:disabled { opacity: .45; cursor: not-allowed; }
   .btn.small { padding: 5px 9px; font-size: 12px; border-radius: 8px; }
   .btn.active { border-color: var(--amber); color: var(--amber); background: var(--amber-soft); }
+  .lang-select { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); padding: 7px 9px; font: inherit; cursor: pointer; }
   .btn.primary { box-shadow: 0 4px 16px rgba(240,160,42,.16); }
   button:focus-visible, [role="button"]:focus-visible, summary:focus-visible {
     outline: 2px solid var(--amber); outline-offset: 2px; }
@@ -273,6 +275,7 @@
   .report-msg { font-size: 11px; margin-top: 3px; color: var(--text); }
   .report-votes { display: flex; gap: 8px; margin-top: 5px; }
   .report-votes .link-btn { font-size: 11px; }
+  .report-votes .link-btn:disabled { opacity: .55; cursor: default; }
   #tripStatusCard.onboard { border-color: var(--amber); box-shadow: 0 0 0 1px rgba(240,160,42,.18); }
   .dest-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 260px; overflow-y: auto; }
   .dest-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
@@ -282,6 +285,9 @@
   .dest-name { font-weight: 600; font-size: 12px; }
   .dest-meta { margin-left: auto; text-align: right; font-size: 10px; color: var(--muted); white-space: nowrap; }
   .dest-sub { font-size: 10px; color: var(--muted); }
+  html[dir="rtl"] .dest-meta { margin-left: 0; margin-right: auto; text-align: left; }
+  html[dir="rtl"] .report-meta { white-space: normal; }
+  html[dir="rtl"] .dialog-actions { flex-direction: row-reverse; }
 
   .route-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 8px; align-items: end; }
   .route-row.two-col { grid-template-columns: 1fr 1fr; }
@@ -470,12 +476,17 @@
       <span id="progressBadge" class="badge" hidden>—</span>
     </div>
     <div class="spacer"></div>
-    <button class="btn primary" id="searchBtn" title="Plan a journey (J)" aria-haspopup="dialog">＋ <span class="plan-long">Plan journey</span><span class="plan-short">Plan</span></button>
+    <button class="btn primary" id="searchBtn" title="Plan a journey (J)" aria-haspopup="dialog">＋ <span class="plan-long" data-i18n="nav.plan">Plan journey</span><span class="plan-short" data-i18n="nav.planShort">Plan</span></button>
     <button class="btn ghost live-jump" id="liveJumpBtn" title="Jump to live departures" aria-label="Jump to live departures">
-      <span class="live-dot"></span><span>Live</span>
+      <span class="live-dot"></span><span data-i18n="nav.live">Live</span>
     </button>
+    <select id="uiLang" class="lang-select" aria-label="Language" data-i18n-aria-label="lang.label">
+      <option value="en">EN</option>
+      <option value="fr">FR</option>
+      <option value="ar">AR</option>
+    </select>
     <details class="tools-menu" id="mapTools">
-      <summary class="btn ghost" title="Map tools">Map <span class="chev">▾</span></summary>
+      <summary class="btn ghost" title="Map tools"><span data-i18n="nav.map">Map</span> <span class="chev">▾</span></summary>
       <div class="tools-pop">
         <div class="tools-row">
           <label for="engine">Engine</label>
@@ -617,36 +628,36 @@
         </div>
 
         <div class="card" id="tripStatusCard" hidden>
-          <h3>Where is it now? <span class="badge unofficial">Timetable estimate</span></h3>
+          <h3><span data-i18n="status.title">Where is it now?</span> <span class="badge unofficial" data-i18n="status.estimate">Timetable estimate</span></h3>
           <div class="row"><span id="tripStatusLine" class="big" style="font-size:18px">—</span></div>
           <div class="row small muted"><span id="tripStatusWhere">—</span><span id="tripStatusDelay"></span></div>
           <div class="progress" style="margin-top:8px"><div class="progress-fill" id="tripStatusFill"></div></div>
           <div class="row small muted">
             <span id="tripStatusMeta"></span>
-            <button class="link-btn" id="tripStatusRefresh" type="button">Refresh</button>
+            <button class="link-btn" id="tripStatusRefresh" type="button" data-i18n="status.refresh">Refresh</button>
           </div>
           <div id="tripStatusAdvisory" class="trip-notice" hidden></div>
           <div class="report-actions">
             <button class="btn small" id="onboardBtn" type="button">I'm on this trip</button>
-            <button class="btn small primary" id="reportOpenBtn" type="button">Report a problem</button>
-            <span class="small muted">Community reports are unverified.</span>
+            <button class="btn small primary" id="reportOpenBtn" type="button" data-i18n="status.report">Report a problem</button>
+            <span class="small muted" data-i18n="reports.unverified">Community reports are unverified.</span>
           </div>
           <div id="onboardPrompt" class="trip-notice" hidden>
             <span id="onboardPromptText">You're near the boarding station. Are you on this trip?</span>
-            <button class="link-btn" id="onboardYes" type="button">Yes, I'm on board</button>
-            <button class="link-btn" id="onboardNo" type="button">Not now</button>
+            <button class="link-btn" id="onboardYes" type="button" data-i18n="status.yes">Yes, I'm on board</button>
+            <button class="link-btn" id="onboardNo" type="button" data-i18n="status.no">Not now</button>
           </div>
           <div id="reportList" class="report-list"></div>
-          <div class="small muted" style="margin-top:6px">
+          <div class="small muted" style="margin-top:6px" data-i18n="status.note">
             This is a timetable estimate, not GPS. ONCF publishes no train positions.
           </div>
         </div>
 
         <div class="card" id="destinationsCard" hidden>
-          <h3>Direct destinations <span class="muted small" id="destinationsFrom"></span></h3>
+          <h3><span data-i18n="dest.title">Direct destinations</span> <span class="muted small" id="destinationsFrom"></span></h3>
           <div class="row small muted">
             <span id="destinationsNote">From the current origin, no changes.</span>
-            <button class="link-btn" id="destinationsRefresh" type="button">Refresh</button>
+            <button class="link-btn" id="destinationsRefresh" type="button" data-i18n="status.refresh">Refresh</button>
           </div>
           <div id="destinationsList" class="dest-list"></div>
         </div>
@@ -732,7 +743,7 @@
         </details>
 
         <details class="card" id="punctualityCard">
-          <summary>Observed punctuality <span class="badge">local</span></summary>
+          <summary><span data-i18n="punct.title">Observed punctuality</span> <span class="badge" data-i18n="punct.local">local</span></summary>
           <div id="punctualityBody" class="small muted">Collecting local observations…</div>
         </details>
       </div>
@@ -744,47 +755,48 @@
 <dialog id="reportDialog" class="report-dialog" aria-labelledby="reportTitle">
   <form id="reportForm">
     <div class="dialog-head">
-      <h2 id="reportTitle">Report a problem</h2>
-      <button class="btn ghost small" id="reportCloseBtn" type="button">Close</button>
+      <h2 id="reportTitle" data-i18n="report.title">Report a problem</h2>
+      <button class="btn ghost small" id="reportCloseBtn" type="button" data-i18n="report.cancel">Close</button>
     </div>
     <div class="dialog-body">
-      <p class="small muted" style="margin:0">
+      <p class="small muted" style="margin:0" data-i18n="report.intro">
         Tell other travellers what you see at the station. This is a community
         report, not an official ONCF message.
       </p>
       <div class="field">
-        <label for="reportKind">What happened?</label>
+        <label for="reportKind" data-i18n="report.kind">What happened?</label>
         <select id="reportKind" name="kind" required autofocus>
-          <option value="departure_delay">Departure delay</option>
-          <option value="cancellation">Cancellation</option>
-          <option value="other">Other</option>
+          <option value="departure_delay" data-i18n="report.delay">Departure delay</option>
+          <option value="cancellation" data-i18n="report.cancellation">Cancellation</option>
+          <option value="other" data-i18n="report.other">Other</option>
         </select>
       </div>
       <div class="field">
-        <label for="reportTrain">Train</label>
+        <label for="reportTrain" data-i18n="report.train">Train</label>
         <input id="reportTrain" name="train" type="text" required maxlength="24"
                autocapitalize="characters" autocorrect="off" spellcheck="false" />
       </div>
       <div class="field">
-        <label for="reportStation">Station</label>
+        <label for="reportStation" data-i18n="report.station">Station</label>
         <select id="reportStation" name="station"></select>
       </div>
       <div class="field" id="reportMinutesField">
-        <label for="reportMinutes">Delay (minutes)</label>
+        <label for="reportMinutes" data-i18n="report.minutes">Delay (minutes)</label>
         <input id="reportMinutes" name="minutes" type="number" min="1" max="600"
                inputmode="numeric" />
       </div>
       <div class="field">
-        <label for="reportMessage">Message (optional)</label>
+        <label for="reportMessage" data-i18n="report.message">Message (optional)</label>
         <textarea id="reportMessage" name="message" maxlength="280"
+                  data-i18n-placeholder="report.placeholder"
                   placeholder="e.g. boarding has not started, platform change…"></textarea>
       </div>
       <input id="reportDate" name="date" type="hidden" />
       <p id="reportError" class="form-error" role="alert" tabindex="-1" hidden></p>
     </div>
     <div class="dialog-actions">
-      <button class="btn ghost" id="reportCancel" type="button">Cancel</button>
-      <button class="btn primary" id="reportSubmit" type="submit">Send report</button>
+      <button class="btn ghost" id="reportCancel" type="button" data-i18n="report.cancel">Cancel</button>
+      <button class="btn primary" id="reportSubmit" type="submit" data-i18n="report.submit">Send report</button>
     </div>
   </form>
 </dialog>
@@ -854,6 +866,7 @@
 <script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
 <script src="/map3d.js"></script>
 <script src="/mapextra.js"></script>
+<script src="/i18n.js"></script>
 <script>
 const MOROCCO_TZ = "Africa/Casablanca";
 const todayInMorocco = () => new Date().toLocaleDateString("en-CA", { timeZone: MOROCCO_TZ });
@@ -881,6 +894,9 @@ const state = {
   onboardPromptDismissed: false,
   onboardPromptReady: false,
   lastFollowAt: 0,
+  votingReports: new Set(),
+  reports: [],
+  destinations: null,
 };
 
 /* ------------------------------------------------------------------ */
@@ -3067,12 +3083,6 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
 /* Live trip status + community reports                               */
 /* ------------------------------------------------------------------ */
 
-const REPORT_KIND_LABELS = {
-  cancellation: "Cancellation",
-  departure_delay: "Departure delay",
-  other: "Other",
-};
-
 function currentTripQuery() {
   const data = state.data;
   if (!data || !data.journey || !Array.isArray(data.stops) || !data.stops.length) return null;
@@ -3099,12 +3109,27 @@ async function loadTripStatus(force = false) {
     const card = document.getElementById("tripStatusCard");
     if (card) card.hidden = false;
     const line = document.getElementById("tripStatusLine");
-    if (line) line.textContent = "Trip status unavailable";
+    if (line) line.textContent = t("status.unknown");
     const where = document.getElementById("tripStatusWhere");
     if (where) where.textContent = e.message || "";
   } finally {
     state.tripStatusLoading = false;
   }
+}
+
+function localizedTripLabel(status) {
+  if (!status) return t("status.unknown");
+  const station = status.station?.name || status.station?.code || "";
+  if (status.status === "not_departed") return t("status.notDeparted", { station });
+  if (status.status === "at_station") return t("status.at", { station });
+  if (status.status === "arrived") return t("status.arrived", { station });
+  if (status.status === "running" && status.leg) {
+    return t("status.running", {
+      from: status.leg.from?.name || "",
+      to: status.leg.to?.name || "",
+    });
+  }
+  return status.status_label || t("status.unknown");
 }
 
 function renderTripStatus(status) {
@@ -3119,24 +3144,25 @@ function renderTripStatus(status) {
   const meta = document.getElementById("tripStatusMeta");
   const advisory = document.getElementById("tripStatusAdvisory");
 
-  line.textContent = status.status_label || "—";
+  line.textContent = localizedTripLabel(status);
   if (status.station) {
-    where.textContent = "At " + (status.station.name || status.station.code);
+    where.textContent = t("status.at", { station: status.station.name || status.station.code });
   } else if (status.leg) {
     where.textContent = `${status.leg.from.name} → ${status.leg.to.name}`;
   } else if (status.next_station) {
-    where.textContent = "Next: " + status.next_station.name;
+    where.textContent = t("status.at", { station: status.next_station.name });
   } else {
     where.textContent = "";
   }
 
   const minutes = Number(status.delay_minutes || 0);
   if (minutes > 0) {
-    const source = status.delay_source === "live_board" ? "live board"
-      : status.delay_source === "community" ? "community report" : "estimate";
+    const source = status.delay_source === "live_board" ? t("status.liveBoard")
+      : status.delay_source === "community" ? t("status.communityReport")
+      : t("status.estimateSource");
     delay.textContent = `+${minutes} min · ${source}`;
   } else {
-    delay.textContent = status.delay_source === "live_board" ? "Live board: on time" : "No reported delay";
+    delay.textContent = status.delay_source === "live_board" ? t("status.liveOnTime") : t("status.noDelay");
   }
 
   const pct = Number.isFinite(status.fraction) ? Math.round(status.fraction * 100) : null;
@@ -3148,20 +3174,36 @@ function renderTripStatus(status) {
   const notices = status.advisories || [];
   if (notices.length) {
     advisory.hidden = false;
-    advisory.textContent = notices.map(n => n.message).join(" ");
+    advisory.textContent = notices.map(n => {
+      if (n.kind === "cancellation") return t("advisory.cancellation");
+      if (n.kind === "departure_delay") return t("advisory.delay");
+      return n.message;
+    }).join(" ");
   } else {
     advisory.hidden = true;
     advisory.textContent = "";
   }
 }
 
+function clientId() {
+  let id = localStorage.getItem("oncf:clientId");
+  if (!id) {
+    id = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem("oncf:clientId", id);
+  }
+  return id;
+}
+
 async function loadReports() {
   const q = currentTripQuery();
   if (!q) return;
   try {
-    const params = new URLSearchParams({ train: q.train, date: q.date });
+    const params = new URLSearchParams({ train: q.train, date: q.date, client_id: clientId() });
     const data = await fetchJson("/api/reports?" + params.toString());
-    renderReports(data.reports || []);
+    state.reports = data.reports || [];
+    renderReports(state.reports);
   } catch (_) {
     const list = document.getElementById("reportList");
     if (list) list.textContent = "";
@@ -3171,11 +3213,12 @@ async function loadReports() {
 function renderReports(reports) {
   const list = document.getElementById("reportList");
   if (!list) return;
+  state.reports = reports;
   list.replaceChildren();
   if (!reports.length) {
     const empty = document.createElement("div");
     empty.className = "small muted";
-    empty.textContent = "No community reports for this trip yet.";
+    empty.textContent = t("reports.empty");
     list.append(empty);
     return;
   }
@@ -3187,7 +3230,8 @@ function renderReports(reports) {
     head.className = "report-head";
     const title = document.createElement("span");
     title.className = "report-title";
-    title.textContent = REPORT_KIND_LABELS[report.kind] || "Report";
+    title.textContent = report.kind === "cancellation" ? t("report.cancellation")
+      : report.kind === "departure_delay" ? t("report.delay") : t("report.other");
     const meta = document.createElement("span");
     meta.className = "report-meta";
     const bits = [];
@@ -3195,7 +3239,7 @@ function renderReports(reports) {
       const stop = (state.stops || []).find(s => s.code === report.station);
       bits.push(stop?.name?.fr || report.station);
     }
-    if (report.age_minutes != null) bits.push(`${report.age_minutes} min ago`);
+    if (report.age_minutes != null) bits.push(`${report.age_minutes} min`);
     meta.textContent = bits.join(" · ");
     head.append(title, meta);
     item.append(head);
@@ -3211,16 +3255,25 @@ function renderReports(reports) {
     votes.className = "report-votes";
     const score = document.createElement("span");
     score.className = "small muted";
-    score.textContent = `${report.confirmations || 0} confirm · ${report.disputes || 0} dispute`;
+    score.textContent = t("reports.score", {
+      confirm: report.confirmations || 0,
+      dispute: report.disputes || 0,
+    });
+    const busy = state.votingReports.has(report.id);
+    const mine = report.my_vote || null;
     const confirm = document.createElement("button");
     confirm.type = "button";
     confirm.className = "link-btn";
-    confirm.textContent = "Confirm";
+    confirm.textContent = mine === "confirm" ? t("reports.confirmed") : t("reports.confirm");
+    confirm.disabled = busy || mine === "confirm";
+    confirm.setAttribute("aria-pressed", mine === "confirm" ? "true" : "false");
     confirm.addEventListener("click", () => voteReport(report.id, "confirm"));
     const dispute = document.createElement("button");
     dispute.type = "button";
     dispute.className = "link-btn";
-    dispute.textContent = "Dispute";
+    dispute.textContent = mine === "dispute" ? t("reports.disputed") : t("reports.dispute");
+    dispute.disabled = busy || mine === "dispute";
+    dispute.setAttribute("aria-pressed", mine === "dispute" ? "true" : "false");
     dispute.addEventListener("click", () => voteReport(report.id, "dispute"));
     votes.append(score, confirm, dispute);
     item.append(votes);
@@ -3229,18 +3282,23 @@ function renderReports(reports) {
 }
 
 async function voteReport(id, vote) {
+  if (state.votingReports.has(id)) return;
+  state.votingReports.add(id);
+  renderReports(state.reports || []);
   try {
     const response = await fetch(`/api/reports/${encodeURIComponent(id)}/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vote }),
+      body: JSON.stringify({ vote, client_id: clientId() }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-    await loadReports();
     await loadTripStatus(true);
   } catch (e) {
     showBanner("Could not record vote: " + e.message, 4000);
+  } finally {
+    state.votingReports.delete(id);
+    await loadReports();
   }
 }
 
@@ -3386,7 +3444,7 @@ function updateOnboardUi() {
   const active = onboardTripMatchesCurrent();
   const button = document.getElementById("onboardBtn");
   if (button) {
-    button.textContent = active ? "Leave trip" : "I'm on this trip";
+    button.textContent = active ? t("status.leave") : t("status.onboard");
     button.classList.toggle("primary", !active);
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
@@ -3437,8 +3495,10 @@ function maybePromptOnboard() {
   state.onboardPromptReady = true;
   const text = document.getElementById("onboardPromptText");
   if (text) {
-    text.textContent =
-      `You're ${formatDistance(metres)} from ${origin.name?.fr || "the boarding station"}. Are you on this trip?`;
+    text.textContent = t("status.prompt", {
+      distance: formatDistance(metres),
+      station: origin.name?.fr || "the boarding station",
+    });
   }
   updateOnboardUi();
 }
@@ -3525,12 +3585,13 @@ function renderDestinations(data) {
   const from = document.getElementById("destinationsFrom");
   const note = document.getElementById("destinationsNote");
   if (!card || !list) return;
+  state.destinations = data;
   const items = data.destinations || [];
   card.hidden = items.length === 0;
   if (!items.length) return;
-  if (from) from.textContent = "from " + (data.station?.name || "");
+  if (from) from.textContent = t("dest.from", { station: data.station?.name || "" });
   if (note) {
-    note.textContent = `${items.length} direct destination${items.length === 1 ? "" : "s"} · no changes`;
+    note.textContent = t("dest.note", { count: items.length });
   }
   list.replaceChildren();
   for (const item of items) {
@@ -3554,7 +3615,7 @@ function renderDestinations(data) {
 
     const meta = document.createElement("span");
     meta.className = "dest-meta";
-    meta.textContent = item.coach ? "coach" : "rail";
+    meta.textContent = item.coach ? t("dest.coach") : t("dest.rail");
     if (item.product_color) {
       const dot = document.createElement("span");
       dot.className = "departure-product";
@@ -3585,18 +3646,27 @@ async function loadPunctuality() {
     const data = await fetchJson("/api/punctuality?days=7");
     body.replaceChildren();
     if (!data.sample_size) {
-      body.textContent = data.note || "No local observations yet.";
+      body.textContent = t("punct.empty");
       return;
     }
     const headline = document.createElement("div");
     headline.className = "small";
-    headline.textContent = `${data.sample_size} observations · ${data.on_time_pct}% on time (±5 min) · average +${data.average_delay} min`;
+    headline.textContent = t("punct.headline", {
+      n: data.sample_size,
+      pct: data.on_time_pct,
+      avg: data.average_delay,
+    });
     const detail = document.createElement("div");
     detail.className = "small muted";
-    detail.textContent = `${data.delayed} delayed · ${data.severe} severe (>15 min) · ${data.stations} stations · ${data.trains} trains`;
+    detail.textContent = t("punct.detail", {
+      delayed: data.delayed,
+      severe: data.severe,
+      stations: data.stations,
+      trains: data.trains,
+    });
     const note = document.createElement("div");
     note.className = "source-note";
-    note.textContent = data.note || "";
+    note.textContent = t("punct.note");
     body.append(headline, detail, note);
   } catch (_) {
     body.textContent = "Punctuality log unavailable.";
@@ -4260,17 +4330,13 @@ document.getElementById("reportForm").addEventListener("submit", submitReport);
 document.getElementById("tripStatusRefresh").addEventListener("click", () => loadTripStatus(true));
 document.getElementById("destinationsRefresh").addEventListener("click", loadDestinations);
 initReportValidity();
-updateOnboardUi();
-loadPunctuality();
+const langSelect = document.getElementById("uiLang");
+langSelect.value = currentLang();
+langSelect.addEventListener("change", () => applyLanguage(langSelect.value));
+applyLanguage(currentLang());
 setInterval(loadPunctuality, 60000);
 
 animateTrain();
 </script>
 </body>
 </html>
-
-
-
-
-
-

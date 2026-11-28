@@ -79,25 +79,85 @@ def test_expired_reports_are_hidden_by_default(tmp_path):
     assert all_reports[0]["active"] is False
 
 
-def test_confirm_and_dispute_votes(tmp_path):
+def test_confirm_and_dispute_votes_from_two_clients(tmp_path):
     store = make_store(tmp_path)
     report = store.add(kind="cancellation", train="103")
 
-    confirmed = store.vote(report["id"], "confirm")
-    disputed = store.vote(report["id"], "dispute")
+    confirmed = store.vote(report["id"], "confirm", client_id="client-aaa")
+    disputed = store.vote(report["id"], "dispute", client_id="client-bbb")
 
     assert confirmed["confirmations"] == 1
+    assert disputed["confirmations"] == 1
     assert disputed["disputes"] == 1
+
+
+def test_repeating_the_same_vote_is_idempotent(tmp_path):
+    store = make_store(tmp_path)
+    report = store.add(kind="cancellation", train="103")
+
+    first = store.vote(report["id"], "confirm", client_id="client-aaa")
+    second = store.vote(report["id"], "confirm", client_id="client-aaa")
+
+    assert first["confirmations"] == 1
+    assert second["confirmations"] == 1
+    assert second["my_vote"] == "confirm"
+
+
+def test_changing_vote_moves_the_count_without_double_counting(tmp_path):
+    store = make_store(tmp_path)
+    report = store.add(kind="cancellation", train="103")
+
+    store.vote(report["id"], "confirm", client_id="client-aaa")
+    switched = store.vote(report["id"], "dispute", client_id="client-aaa")
+
+    assert switched["confirmations"] == 0
+    assert switched["disputes"] == 1
+    assert switched["my_vote"] == "dispute"
+
+
+def test_two_clients_are_counted_independently(tmp_path):
+    store = make_store(tmp_path)
+    report = store.add(kind="cancellation", train="103")
+
+    store.vote(report["id"], "confirm", client_id="client-aaa")
+    both = store.vote(report["id"], "confirm", client_id="client-bbb")
+
+    assert both["confirmations"] == 2
+    assert both["my_vote"] == "confirm"
+
+
+def test_vote_requires_a_valid_client_id(tmp_path):
+    store = make_store(tmp_path)
+    report = store.add(kind="other", train="MA")
+
+    with pytest.raises(ValueError):
+        store.vote(report["id"], "confirm")
+    with pytest.raises(ValueError):
+        store.vote(report["id"], "confirm", client_id="bad id!")
+
+
+def test_list_hides_other_voters_but_returns_my_vote(tmp_path):
+    store = make_store(tmp_path)
+    report = store.add(kind="cancellation", train="103")
+    store.vote(report["id"], "confirm", client_id="client-aaa")
+    store.vote(report["id"], "dispute", client_id="client-bbb")
+
+    mine = store.list(train="103", client_id="client-aaa")[0]
+    anonymous = store.list(train="103")[0]
+
+    assert mine["my_vote"] == "confirm"
+    assert "votes" not in mine
+    assert anonymous["my_vote"] is None
 
 
 def test_vote_rejects_unknown_report_and_bad_value(tmp_path):
     store = make_store(tmp_path)
     with pytest.raises(KeyError):
-        store.vote("missing", "confirm")
+        store.vote("missing", "confirm", client_id="client-aaa")
 
     report = store.add(kind="other", train="MA")
     with pytest.raises(ValueError):
-        store.vote(report["id"], "maybe")
+        store.vote(report["id"], "maybe", client_id="client-aaa")
 
 
 def test_filter_by_station_and_date(tmp_path):
