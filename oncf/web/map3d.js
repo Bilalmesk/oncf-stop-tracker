@@ -28,6 +28,7 @@
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
   const OFM_PLANET = "https://tiles.openfreemap.org/planet";
   const OFM_LIBERTY = "https://tiles.openfreemap.org/styles/liberty";
+  const OFM_FIORD = "https://tiles.openfreemap.org/styles/fiord";
   const CARTO_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
   let map = null;
@@ -742,6 +743,7 @@
     installed = false;
     if (name === "satellite") map.setStyle(satelliteStyle());
     else if (name === "night") map.setStyle(CARTO_DARK);
+    else if (name === "fiord") map.setStyle(OFM_FIORD);
     else if (name === "streets" || name === "detailed" || name === "terrain") map.setStyle(OFM_LIBERTY);
     else map.setStyle(OFM_LIBERTY);
 
@@ -777,7 +779,13 @@
     if (map) return map;
     map = new maplibregl.Map({
       container: containerId || "map3d",
-      style: basemap === "satellite" ? satelliteStyle() : basemap === "night" ? CARTO_DARK : OFM_LIBERTY,
+      style: basemap === "satellite"
+        ? satelliteStyle()
+        : basemap === "night"
+        ? CARTO_DARK
+        : basemap === "fiord"
+        ? OFM_FIORD
+        : OFM_LIBERTY,
       center: [-5.5, 33.9],
       zoom: 6,
       pitch: 0,

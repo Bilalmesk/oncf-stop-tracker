@@ -503,6 +503,7 @@
             <option value="streets">Detailed</option>
             <option value="satellite">Satellite</option>
             <option value="night" selected>Night</option>
+            <option value="fiord">Fiord</option>
             <option value="terrain">Terrain</option>
           </select>
         </div>
@@ -1106,6 +1107,7 @@ let cityLabelLayer = null;
 let journeyFocus = false;
 
 function setBasemap(name) {
+  const fiordPlaceholder = name === "fiord";
   if (!basemaps[name]) name = "satellite";
   if (baseLayer) map.removeLayer(baseLayer);
   if (nightTint) { map.removeLayer(nightTint); nightTint = null; }
@@ -1127,11 +1129,12 @@ function setBasemap(name) {
   document.body.classList.toggle("sat-base", name === "satellite");
   document.body.classList.toggle("night-base", name === "night");
   const select = document.getElementById("basemap");
-  if (select) select.value = name;
+  if (select && !fiordPlaceholder) select.value = name;
   // Satellite imagery and the tinted night view have no place names, so our
   // own bilingual labels are shown on them. Street/terrain already carry labels.
   syncCityLabels();
-  if (basemaps[name]) localStorage.setItem("oncf:basemap3", name);
+  if (fiordPlaceholder) localStorage.setItem("oncf:basemap3", "fiord");
+  else if (basemaps[name]) localStorage.setItem("oncf:basemap3", name);
 }
 
 setBasemap(localStorage.getItem("oncf:basemap3") || "night");
@@ -3968,6 +3971,12 @@ document.getElementById("moroccoBtn").onclick = () => {
   else if (moroccoBounds) map.fitBounds(moroccoBounds.pad(0.015));
 };
 document.getElementById("basemap").onchange = (event) => {
+  if (event.target.value === "fiord") localStorage.setItem("oncf:basemap3", "fiord");
+  if (event.target.value === "fiord" && currentEngine !== "vector") {
+    setEngine("vector");
+    syncPlacesButton();
+    return;
+  }
   const engine = activeMap();
   if (engine && engine.setBasemap) engine.setBasemap(event.target.value);
   else setBasemap(event.target.value);
@@ -4124,6 +4133,10 @@ function activeMap() {
 
 function setEngine(name, persist = true) {
   if (!["vector", "mapbox", "google", "classic"].includes(name)) name = "classic";
+  if (name === "classic" && document.getElementById("basemap").value === "fiord") {
+    document.getElementById("basemap").value = "night";
+    localStorage.setItem("oncf:basemap3", "night");
+  }
 
   if (name === "mapbox") {
     const token = localStorage.getItem("oncf:mapboxToken") || window.prompt("Mapbox public access token (pk.…)");
@@ -4194,7 +4207,7 @@ const placesButton = document.getElementById("placesBtn");
 
 function syncPlacesButton() {
   const style = document.getElementById("basemap").value;
-  const supported = currentEngine === "vector" && style !== "night" && style !== "satellite";
+  const supported = currentEngine === "vector" && !["night", "satellite", "fiord"].includes(style);
   placesButton.classList.toggle("active", supported && placesVisible);
   placesButton.title = supported
     ? "Show cafés, restaurants and landmarks"
@@ -4266,6 +4279,10 @@ async function boot() {
   loadNetwork();
   loadTraffic();
   if (!p.get("train")) initLiveDepartures();
+  if (localStorage.getItem("oncf:basemap3") === "fiord") {
+    currentEngine = "vector";
+    document.getElementById("basemap").value = "fiord";
+  }
   setEngine(currentEngine, false);
 
   const today = state.today || todayInMorocco();

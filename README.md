@@ -36,8 +36,8 @@ a separate private repository.
   station, recent routes, direct-train preselection.
 - **Selected trip ribbon** — white/amber glowing route, animated direction
   dashes, green **Start** / red **End** markers, travelled portion filled amber.
-- **Night map** — dark vector map by default, with a Classic Leaflet map and
-  satellite/streets/terrain styles available.
+- **Night map** — dark vector map by default, with **Fiord** (blue), Classic
+  Leaflet, satellite, streets and terrain available.
 - **Traffic notices** — official works/service notices from the gateway.
 - **Station search, stops, dwell times, GPS, proximity alerts and fullscreen.**
 
@@ -229,6 +229,8 @@ The default **Vector** engine uses MapLibre GL and a dark **Night** style:
 
 The **Classic** engine uses Leaflet with Night (Esri imagery + dark tint),
 Satellite, Streets and Terrain. **3D map** adds pitch and building extrusions.
+**Fiord** is the blue OpenFreeMap vector style; selecting it switches to the
+Vector engine automatically and is remembered across reloads.
 See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
 
 ## Honesty
