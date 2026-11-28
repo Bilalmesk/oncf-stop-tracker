@@ -3206,6 +3206,35 @@ function syncReportKind() {
   minutes.setCustomValidity("");
 }
 
+function syncReportFieldValidity(field) {
+  if (!field || !field.matches) return;
+  field.setAttribute(
+    "aria-invalid",
+    field.matches(":user-invalid") ? "true" : "false",
+  );
+}
+
+function initReportValidity() {
+  const form = document.getElementById("reportForm");
+  for (const field of form.querySelectorAll("input, select, textarea")) {
+    field.setAttribute("aria-invalid", "false");
+  }
+  form.addEventListener("input", (event) => {
+    if (event.target.matches("input, select, textarea")) {
+      event.target.setCustomValidity("");
+      syncReportFieldValidity(event.target);
+    }
+  });
+  form.addEventListener("focusout", (event) => {
+    if (event.target.matches("input, select, textarea")) {
+      syncReportFieldValidity(event.target);
+    }
+  });
+  form.addEventListener("invalid", (event) => {
+    syncReportFieldValidity(event.target);
+  }, true);
+}
+
 function openReportDialog() {
   const q = currentTripQuery();
   if (!q) return;
@@ -3937,6 +3966,7 @@ document.getElementById("reportCancel").addEventListener("click", closeReportDia
 document.getElementById("reportKind").addEventListener("change", syncReportKind);
 document.getElementById("reportForm").addEventListener("submit", submitReport);
 document.getElementById("tripStatusRefresh").addEventListener("click", () => loadTripStatus(true));
+initReportValidity();
 
 animateTrain();
 </script>
