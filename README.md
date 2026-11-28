@@ -269,7 +269,7 @@ See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
 python -m pytest -q
 ```
 
-149 tests cover stop calculations, timezone quirks, GTFS, live departure
+177 tests cover stop calculations, timezone quirks, GTFS, live departure
 parsing/caching, route-shape fallback, works notices, trip status, community
 reports and vote idempotence, direct destinations, punctuality logging, the
 local API contract and source health. Tests that require official fixtures skip
