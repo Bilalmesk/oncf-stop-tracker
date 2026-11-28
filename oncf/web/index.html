@@ -103,6 +103,7 @@
   .settings-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding-top: 2px; }
   .settings-check { display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; }
   .settings-check input { accent-color: var(--amber); width: 15px; height: 15px; }
+  .settings-check.is-disabled { opacity: .45; cursor: not-allowed; }
   .settings-timetable { display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding-top: 4px; }
   .settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -1299,7 +1300,8 @@ function updateCityLabels() {
     .filter(Boolean)
     .map((el) => el.querySelector(".city-label"))
     .filter(Boolean);
-  els.forEach((el) => { el.style.display = ""; });
+  const visibleLimit = Math.max(0, mapQualityProfile().labels);
+  els.forEach((el, index) => { el.style.display = index < visibleLimit ? "" : "none"; });
   const mapRect = map.getContainer().getBoundingClientRect();
   const blockers = [];
   const find = document.getElementById("mapFind");
@@ -2378,6 +2380,10 @@ function renderMap() {
       }),
     ]).addTo(map);
     state.progressLine = state.line.getLayers()[3];
+    const glowLayer = state.line.getLayers()[0];
+    if (glowLayer && glowLayer.setStyle) {
+      glowLayer.setStyle({ opacity: state.routeGlow && mapQualityProfile().glow ? 0.10 : 0 });
+    }
     updateRouteLegend();
     bringRouteToFront();
   }
@@ -4160,6 +4166,9 @@ document.getElementById("settingsFullscreen").onclick = () => {
   document.getElementById("mapFull").click();
   closeMapSettings();
 };
+for (const id of ["fitBtn", "focusBtn", "moroccoBtn", "refreshBtn", "locateBtn"]) {
+  document.getElementById(id).addEventListener("click", closeMapSettings);
+}
 document.getElementById("mapSettingsReset").onclick = () => {
   if (!window.confirm(t("settings.resetConfirm"))) return;
   for (const key of [
@@ -4387,6 +4396,10 @@ document.getElementById("moroccoBtn").onclick = () => {
 document.getElementById("basemap").onchange = (event) => {
   const value = event.target.value;
   localStorage.setItem("oncf:basemap3", value);
+  if (value === "terrain" && currentEngine !== "classic") {
+    setEngine("classic");
+    return;
+  }
   if (isVectorOnlyStyle(value) && currentEngine !== "vector") {
     setEngine("vector");
     syncPlacesButton();
@@ -4561,7 +4574,12 @@ function setEngine(name, persist = true) {
 
   if (name === "vector") {
     try {
-      const styleName = document.getElementById("basemap").value || "night";
+      let styleName = document.getElementById("basemap").value || "night";
+      if (styleName === "terrain") {
+        styleName = "liberty";
+        document.getElementById("basemap").value = styleName;
+        localStorage.setItem("oncf:basemap3", styleName);
+      }
       // Create MapLibre with the saved style directly. Creating it with Night
       // and immediately calling setStyle() doubled the initial tile work.
       VectorMap.init("map3d", styleName);
@@ -4705,7 +4723,7 @@ function applyMapSettings() {
   }
   if (state.line && typeof state.line.getLayers === "function") {
     const glow = state.line.getLayers()[0];
-    if (glow && glow.setStyle) glow.setStyle({ opacity: options.routeGlow ? 1 : 0 });
+    if (glow && glow.setStyle) glow.setStyle({ opacity: options.routeGlow ? 0.10 : 0 });
   }
   syncCityLabels();
   syncMapSettingsControls();
@@ -4727,6 +4745,11 @@ function syncMapSettingsControls() {
   }
   const network = document.getElementById("networkBtn");
   if (network) network.classList.toggle("active", state.networkVisible);
+  const buildings = document.getElementById("settingsBuildings");
+  if (buildings) {
+    buildings.disabled = currentEngine === "classic";
+    buildings.closest(".settings-check")?.classList.toggle("is-disabled", buildings.disabled);
+  }
   if (typeof syncPlacesButton === "function") syncPlacesButton();
 }
 
