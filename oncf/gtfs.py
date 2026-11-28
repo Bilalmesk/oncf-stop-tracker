@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
+from .geo import haversine_m
 from .models import DataType, Journey, Provenance, Station, Stop
 from .names import clean_route_name, clean_station_name
 from .timeutil import TZ, gtfs_time_to_datetime
@@ -64,6 +65,7 @@ class GtfsFeed:
         for rows in self._times_by_trip.values():
             rows.sort(key=lambda r: int(r["stop_sequence"]))
         self._trips_by_id = {row["trip_id"]: self._to_trip(row) for row in self._trip_rows}
+        self._plausible_cache: dict[str, bool] = {}
 
     # --- loading --------------------------------------------------------
     def _read(self, name: str) -> list[dict]:
@@ -273,8 +275,81 @@ class GtfsFeed:
         )
         return [trip for trip, _, _ in rows]
 
+    @staticmethod
+    def _clock_seconds(value: str | None) -> int | None:
+        if not value:
+            return None
+        parts = value.split(":")
+        if len(parts) not in (2, 3):
+            return None
+        try:
+            numbers = [int(part) for part in parts]
+        except (TypeError, ValueError):
+            return None
+        hours, minutes = numbers[0], numbers[1]
+        seconds = numbers[2] if len(numbers) == 3 else 0
+        if hours < 0 or not (0 <= minutes <= 59 and 0 <= seconds <= 59):
+            return None
+        return hours * 3600 + minutes * 60 + seconds
+
+    def _trip_is_plausible(self, trip_id: str) -> bool:
+        """Reject trips whose own stop times are physically impossible.
+
+        The community feed contains a few malformed tails (a 30-hour domestic
+        train, a 20-hour hop between adjacent coach stops, a 433 km/h coach
+        segment). Serving those produces time-travel stop lists, so they are
+        excluded rather than displayed as real schedules.
+        """
+        cached = self._plausible_cache.get(trip_id)
+        if cached is not None:
+            return cached
+        rows = self._times_by_trip.get(trip_id) or []
+        if len(rows) < 2:
+            self._plausible_cache[trip_id] = True
+            return True
+        first = rows[0]
+        last = rows[-1]
+        start = self._clock_seconds(first.get("departure_time") or first.get("arrival_time"))
+        end = self._clock_seconds(last.get("arrival_time") or last.get("departure_time"))
+        if start is None or end is None:
+            self._plausible_cache[trip_id] = False
+            return False
+        duration = end - start
+        if duration <= 0 or duration > 24 * 3600:
+            self._plausible_cache[trip_id] = False
+            return False
+
+        previous_departure = start
+        previous_stop = first.get("stop_id")
+        for row in rows[1:]:
+            arrival = self._clock_seconds(row.get("arrival_time") or row.get("departure_time"))
+            departure = self._clock_seconds(row.get("departure_time") or row.get("arrival_time"))
+            if arrival is None or departure is None:
+                self._plausible_cache[trip_id] = False
+                return False
+            gap = arrival - previous_departure
+            if gap < 0 or gap > 16 * 3600:
+                self._plausible_cache[trip_id] = False
+                return False
+            a = self._stop_coords.get(previous_stop or "")
+            b = self._stop_coords.get(row.get("stop_id") or "")
+            if a and b and gap > 0:
+                speed_mps = haversine_m(a[0], a[1], b[0], b[1]) / gap
+                if speed_mps > 250 / 3.6:
+                    self._plausible_cache[trip_id] = False
+                    return False
+            previous_departure = departure
+            previous_stop = row.get("stop_id")
+        self._plausible_cache[trip_id] = True
+        return True
+
     def trips_on(self, travel_date: date) -> list[TripInfo]:
-        return [trip for trip in self._trips_by_id.values() if self.service_runs_on(trip.service_id, travel_date)]
+        return [
+            trip
+            for trip in self._trips_by_id.values()
+            if self.service_runs_on(trip.service_id, travel_date)
+            and self._trip_is_plausible(trip.trip_id)
+        ]
 
     def trips_for_train(self, train_number: str, travel_date: date) -> list[TripInfo]:
         return [trip for trip in self.trips_on(travel_date) if trip.train_number == train_number]
@@ -398,6 +473,8 @@ class GtfsFeed:
         return clean_route_name(name), (f"#{color}" if color else "")
 
     def journey(self, trip_id: str, travel_date: date) -> Journey:
+        if not self._trip_is_plausible(trip_id):
+            raise LookupError(f"GTFS trip {trip_id} has implausible stop times")
         trip = self._trips_by_id[trip_id]
         product, product_color = self.route_info(trip.route_id)
         stops: list[Stop] = []

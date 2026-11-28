@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .config import CACHE_DIR, STATION_CACHE_TTL_HOURS
 from .http import HttpClient
-from .models import Station
+from .models import Station, search_key
 
 
 @dataclass(frozen=True)
@@ -31,10 +31,10 @@ class City:
         return self.name_fr
 
     def matches(self, query: str) -> bool:
-        q = query.strip().casefold()
+        q = search_key(query.strip())
         if not q:
             return True
-        return any(q in (v or "").casefold() for v in (self.name_fr, self.name_ar, self.name_en, self.code))
+        return any(q in search_key(v) for v in (self.name_fr, self.name_ar, self.name_en, self.code))
 
     @property
     def key(self) -> str:
@@ -98,18 +98,19 @@ class CityCatalog:
             for c in self._cities.values()
             if c.matches(q) and (include_empty or c.station_codes)
         ]
-        matches.sort(key=lambda c: (not c.name_fr.casefold().startswith(q.casefold()), c.name_fr))
+        folded = search_key(q)
+        matches.sort(key=lambda c: (not search_key(c.name_fr).startswith(folded), c.name_fr))
         return matches[:limit]
 
     def resolve(self, value: str) -> City:
         key = str(value).removeprefix("c:").strip()
         if key in self._cities:
             return self._cities[key]
-        folded = key.casefold()
+        folded = search_key(key)
         exact = [
             c
             for c in self._cities.values()
-            if folded in {c.name_fr.casefold(), (c.name_ar or "").casefold(), (c.name_en or "").casefold()}
+            if folded in {search_key(c.name_fr), search_key(c.name_ar), search_key(c.name_en)}
         ]
         if len(exact) == 1:
             return exact[0]

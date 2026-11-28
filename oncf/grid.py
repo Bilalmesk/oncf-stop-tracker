@@ -43,7 +43,7 @@ FRENCH_MONTHS = {
 }
 
 # How far (in PDF points) a header word may sit from a time column to label it.
-HEADER_X_TOLERANCE = 26
+HEADER_X_TOLERANCE = 45
 # Two clock strings closer than this on the x axis belong to the same station.
 COLUMN_X_TOLERANCE = 12
 # Words within this vertical distance form one line/row.
@@ -63,8 +63,10 @@ def parse_clock(value: str) -> int | None:
     """'07:40' -> 460 minutes, or None."""
     if not value or not TIME_RE.match(value):
         return None
-    hours, minutes = value.split(":")
-    return int(hours) * 60 + int(minutes)
+    hours, minutes = (int(part) for part in value.split(":"))
+    if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+        return None
+    return hours * 60 + minutes
 
 
 @dataclass
@@ -227,17 +229,19 @@ def parse_grid_pdf(path: str | Path) -> GridTimetable:
         ]
         anchors.sort(key=lambda word: (round(word.y, 1), word.x0))
 
+        processed_lines: set[float] = set()
         for anchor in anchors:
             same_line = sorted(
                 (other for other in anchors if abs(other.y - anchor.y) <= LINE_Y_TOLERANCE),
                 key=lambda word: word.x0,
             )
-            if len(same_line) > 1:
-                position = same_line.index(anchor)
-                x_min = 0 if position == 0 else anchor.x0 - 15
-                x_max = same_line[position + 1].x0 - 15 if position + 1 < len(same_line) else page.rect.width
-            else:
-                x_min, x_max = 0, page.rect.width
+            line_key = round(anchor.y, 1)
+            if line_key in processed_lines:
+                continue
+            processed_lines.add(line_key)
+            # Side-by-side timetables (outbound + return) share a page. Parse
+            # the whole width; _parse_box splits each row by its train labels.
+            x_min, x_max = 0, page.rect.width
 
             next_y = min(
                 (other.y for other in anchors if other.y > anchor.y + LINE_Y_TOLERANCE),
@@ -251,12 +255,7 @@ def parse_grid_pdf(path: str | Path) -> GridTimetable:
             if len(box) < 4:
                 continue
 
-            heading_words = [
-                word
-                for word in same_line
-                if x_min <= word.center <= x_max
-            ]
-            heading = " ".join(word.text for word in heading_words).strip()
+            heading = " ".join(word.text for word in same_line).strip()
             section = _parse_box(box, heading)
             if section is not None:
                 sections.append(section)
@@ -314,25 +313,51 @@ def _parse_box(words: list[_Word], heading: str) -> GridSection | None:
 
     section = GridSection(heading=heading, stations=[column.label for column in labelled])
 
+    def train_tokens(line: list[_Word]) -> list[tuple[str, float]]:
+        """All train labels on a row, in left-to-right order.
+
+        Some PDFs print two independent tables side by side (Casa–Kénitra has
+        trains 1/3/5 on the left and 2/4/6 on the right). A row therefore can
+        contain two train labels and two sets of times. Assign each time to the
+        nearest preceding label instead of collapsing the whole row into the
+        first train.
+        """
+        tokens: list[tuple[str, float]] = []
+        for word in line:
+            text = word.text.strip()
+            if (
+                not TIME_RE.match(text)
+                and TRAIN_TOKEN_RE.match(text)
+                and text.upper() not in TRAIN_STOPWORDS
+            ):
+                tokens.append((text.lstrip("*"), word.x0))
+        return tokens
+
     seen: set[str] = set()
     for line in lines[data_start:]:
-        token = train_token(line)
-        if token is None:
+        tokens = train_tokens(line)
+        if not tokens:
             continue
-        train = token[0]
-        if train in seen:
-            continue
-        seen.add(train)
-        trip = GridTrip(train=train)
-        for word in line:
-            if not TIME_RE.match(word.text):
+        for index, (train, start_x) in enumerate(tokens):
+            if train in seen:
                 continue
-            column = _find_column(columns, word)
-            if column is None or not column.label:
+            end_x = tokens[index + 1][1] if index + 1 < len(tokens) else float("inf")
+            time_words = [
+                word
+                for word in line
+                if start_x <= word.x0 < end_x and TIME_RE.match(word.text)
+            ]
+            if len(time_words) < 2:
                 continue
-            trip.times.setdefault(column.label, word.text)
-        if trip.times:
-            section.trips.append(trip)
+            trip = GridTrip(train=train)
+            for word in time_words:
+                column = _find_column(columns, word)
+                if column is None or not column.label:
+                    continue
+                trip.times.setdefault(column.label, word.text)
+            if trip.times:
+                seen.add(train)
+                section.trips.append(trip)
 
     return section if section.trips else None
 

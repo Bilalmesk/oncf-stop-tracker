@@ -7,7 +7,13 @@ import pytest
 
 from oncf.calculator import stop_duration, summarize_stop
 from oncf.models import DataType, Station, Stop, StopKind
-from oncf.timeutil import TZ, clock_duration_minutes, gtfs_time_to_datetime, parse_local
+from oncf.timeutil import (
+    TZ,
+    clock_duration_minutes,
+    gtfs_time_to_datetime,
+    parse_aware,
+    parse_local,
+)
 
 STATION = Station(code="380", name_fr="FES", name_ar="فاس")
 SERVICE_DATE = date(2026, 11, 23)
@@ -85,6 +91,20 @@ def test_zero_minute_stop_is_flagged_not_assumed():
     summary = summarize_stop(stop(at(10, 10), at(10, 10)), SERVICE_DATE)
     assert summary.duration_minutes == 0
     assert any("rounding" in w or "pass-through" in w for w in summary.warnings)
+
+
+def test_malformed_timestamps_return_none_instead_of_raising():
+    assert parse_local("2026-13-01T00:00:00") is None
+    assert parse_local("2026-02-30T00:00:00") is None
+    assert parse_aware("not-a-date") is None
+    assert gtfs_time_to_datetime(SERVICE_DATE, "bad") is None
+    assert gtfs_time_to_datetime(SERVICE_DATE, "10:99:00") is None
+
+
+def test_sub_minute_stop_rounds_to_zero_with_warning():
+    summary = summarize_stop(stop(at(10, 10), at(10, 10) + timedelta(seconds=30)), SERVICE_DATE)
+    assert summary.duration_minutes == 0
+    assert any("less than one minute" in w for w in summary.warnings)
 
 
 def test_negative_duration_is_rejected_not_rolled_over():

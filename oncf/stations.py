@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .config import CACHE_DIR, STATION_CACHE_TTL_HOURS
 from .http import HttpClient
-from .models import Station
+from .models import Station, search_key
 
 
 class StationCatalog:
@@ -83,7 +83,8 @@ class StationCatalog:
 
     def search(self, query: str, limit: int = 20) -> list[Station]:
         matches = [s for s in self._stations.values() if s.matches(query)]
-        matches.sort(key=lambda s: (not s.name_fr.casefold().startswith(query.strip().casefold()), s.name_fr))
+        folded = search_key(query.strip())
+        matches.sort(key=lambda s: (not search_key(s.name_fr).startswith(folded), s.name_fr))
         return matches[:limit]
 
     def all(self) -> list[Station]:
@@ -99,16 +100,16 @@ class StationCatalog:
         if key in self._stations:
             return self._stations[key]
 
-        folded = key.casefold()
+        folded = search_key(key)
         if folded:
             exact = [
                 station
                 for station in self._stations.values()
                 if folded
                 in {
-                    station.name_fr.casefold(),
-                    (station.name_ar or "").casefold(),
-                    (station.name_en or "").casefold(),
+                    search_key(station.name_fr),
+                    search_key(station.name_ar),
+                    search_key(station.name_en),
                 }
             ]
             if len(exact) == 1:

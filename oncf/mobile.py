@@ -31,16 +31,18 @@ class MobileApiError(RuntimeError):
     """Raised when the mobile gateway returns an error envelope."""
 
 
-def _seconds(value: str | None) -> float:
+def _seconds(value: str | None) -> float | None:
     if not value:
-        return 0.0
+        return None
     parts = value.split(":")
     if len(parts) != 3:
-        return 0.0
+        return None
     try:
         hours, minutes, seconds = (int(part) for part in parts)
     except ValueError:
-        return 0.0
+        return None
+    if hours < 0 or not (0 <= minutes <= 59 and 0 <= seconds <= 59):
+        return None
     return hours * 3600 + minutes * 60 + seconds
 
 
@@ -48,7 +50,11 @@ def delay_minutes(scheduled: str | None, real: str | None) -> int:
     """Minutes late, handling midnight rollover (23:22 → 00:05 = +43)."""
     if not scheduled or not real:
         return 0
-    diff = _seconds(real) - _seconds(scheduled)
+    start = _seconds(scheduled)
+    end = _seconds(real)
+    if start is None or end is None:
+        return 0
+    diff = end - start
     if diff < -12 * 3600:
         diff += 24 * 3600
     return int(round(diff / 60))
@@ -119,13 +125,19 @@ class Departure:
 
 def parse_departures(payload: dict[str, Any], catalog: StationCatalog | None = None) -> list[Departure]:
     """Turn a ``DepartingTrains`` response into enriched departures."""
-    head = payload.get("head") or {}
+    if not isinstance(payload, dict):
+        return []
+    head = payload.get("head")
+    if not isinstance(head, dict):
+        head = {}
     if head.get("errorCode") not in (0, None, "0"):
         raise MobileApiError(
             f"ONCF mobile API error {head.get('errorCode')}: {head.get('errorMessage') or 'request failed'}"
         )
-    body = payload.get("body") or {}
-    trains = body.get("trains") if isinstance(body, dict) else None
+    body = payload.get("body")
+    if not isinstance(body, dict):
+        body = {}
+    trains = body.get("trains")
     if not isinstance(trains, list):
         return []
 
@@ -133,8 +145,11 @@ def parse_departures(payload: dict[str, Any], catalog: StationCatalog | None = N
     for item in trains:
         if not isinstance(item, dict):
             continue
+        train = str(item.get("numTrain") or "").strip()
         scheduled = str(item.get("heureDepart") or "")
         real = str(item.get("realDepartureTime") or scheduled)
+        if not train or not (scheduled or real):
+            continue
         code = str(item.get("GareFinale") or item.get("codeGareFinale") or "")
         product, color = from_code(item.get("codeGamme"))
         destination: Station | None = catalog.maybe_get(code) if catalog and code else None
@@ -144,7 +159,7 @@ def parse_departures(payload: dict[str, Any], catalog: StationCatalog | None = N
             level = 0
         departures.append(
             Departure(
-                train=str(item.get("numTrain") or "?"),
+                train=train,
                 scheduled=scheduled,
                 real=real,
                 delay_minutes=delay_minutes(scheduled, real),

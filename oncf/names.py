@@ -28,7 +28,8 @@ _SPACES_RE = re.compile(r"\s{2,}")
 
 def clean_station_name(name: str | None) -> str:
     """Return a display name with known typos/accents fixed."""
-    text = str(name or "").strip()
+    text = _SUPRAT_RE.sub("", str(name or ""))
+    text = _SPACES_RE.sub(" ", text).strip(" -")
     if not text:
         return ""
     return _STATION_NAMES.get(text.casefold(), text)

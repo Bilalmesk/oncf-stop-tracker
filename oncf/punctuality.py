@@ -43,8 +43,24 @@ class PunctualityLog:
         return value.astimezone(UTC)
 
     @staticmethod
-    def _key(observed_at: datetime, station: str, train: str, scheduled: str) -> str:
-        return f"{observed_at.date().isoformat()}|{station}|{train}|{scheduled}"
+    def _service_date(observed_at: datetime, scheduled: str) -> str:
+        service_date = observed_at.date()
+        try:
+            parts = [int(part) for part in str(scheduled).split(":")]
+            scheduled_seconds = parts[0] * 3600 + parts[1] * 60 + (parts[2] if len(parts) > 2 else 0)
+        except (IndexError, TypeError, ValueError):
+            return service_date.isoformat()
+        observed_seconds = observed_at.hour * 3600 + observed_at.minute * 60 + observed_at.second
+        delta = scheduled_seconds - observed_seconds
+        if delta < -12 * 3600:
+            service_date += timedelta(days=1)
+        elif delta > 12 * 3600:
+            service_date -= timedelta(days=1)
+        return service_date.isoformat()
+
+    @classmethod
+    def _key(cls, observed_at: datetime, station: str, train: str, scheduled: str) -> str:
+        return f"{cls._service_date(observed_at, scheduled)}|{station}|{train}|{scheduled}"
 
     @staticmethod
     def _signature(real: str, delay: int) -> str:
@@ -106,6 +122,7 @@ class PunctualityLog:
                 except (TypeError, ValueError):
                     delay, level = 0, 0
                 key = self._key(moment, station_code, train, scheduled)
+                service_date = key.split("|", 1)[0]
                 signature = self._signature(real, delay)
                 if self._seen.get(key) == signature:
                     continue
@@ -114,7 +131,7 @@ class PunctualityLog:
                     json.dumps(
                         {
                             "observed_at": moment.isoformat(),
-                            "date": moment.date().isoformat(),
+                            "date": service_date,
                             "station": station_code,
                             "train": train,
                             "scheduled": scheduled,
@@ -168,11 +185,13 @@ class PunctualityLog:
             latest[key] = item
 
         delays: list[int] = []
+        valid_items: list[dict[str, Any]] = []
         for item in latest.values():
             try:
                 delays.append(max(0, int(item.get("delay_minutes") or 0)))
             except (TypeError, ValueError):
                 continue
+            valid_items.append(item)
         count = len(delays)
         if not count:
             return {
@@ -194,9 +213,9 @@ class PunctualityLog:
         on_time = sum(1 for value in delays if value <= ON_TIME_LIMIT)
         severe = sum(1 for value in delays if value > SEVERE_LIMIT)
         delayed = count - on_time
-        stations = {str(item.get("station") or "") for item in latest.values()}
-        trains = {str(item.get("train") or "") for item in latest.values()}
-        dates = sorted(str(item.get("date") or "") for item in latest.values())
+        stations = {str(item.get("station") or "") for item in valid_items}
+        trains = {str(item.get("train") or "") for item in valid_items}
+        dates = sorted(str(item.get("date") or "") for item in valid_items)
         return {
             "sample_size": count,
             "on_time": on_time,

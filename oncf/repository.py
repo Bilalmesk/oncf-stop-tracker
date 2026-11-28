@@ -34,16 +34,21 @@ def trim_to_segment(journey: Journey, origin_codes: list[str], destination_codes
     """
     board = next(
         (index for index, stop in enumerate(journey.stops) if stop.station.code in origin_codes),
-        0,
+        None,
     )
     alight = next(
         (
             index
             for index, stop in enumerate(journey.stops)
-            if index > board and stop.station.code in destination_codes
+            if board is not None and index > board and stop.station.code in destination_codes
         ),
-        len(journey.stops) - 1,
+        None,
     )
+    if board is None or alight is None:
+        raise LookupError(
+            f"train {journey.service_label} does not run "
+            f"{'/'.join(origin_codes)} -> {'/'.join(destination_codes)} in that order"
+        )
     segment = journey.stops[board : alight + 1]
     total = len(segment)
     stops = [
@@ -79,7 +84,8 @@ class ServiceOption:
     def duration_minutes(self) -> int | None:
         if not self.departure or not self.arrival:
             return None
-        return int((self.arrival - self.departure).total_seconds() // 60)
+        minutes = int((self.arrival - self.departure).total_seconds() // 60)
+        return minutes if minutes >= 0 else None
 
 
 class Repository:
@@ -308,6 +314,8 @@ class Repository:
         origin_name = self._station_name(origin_code)
         destination_name = self._station_name(destination_code)
         for grid in self.grids.grids:
+            if grid.effective and travel_date < grid.effective:
+                continue
             trip = find_trip(grid, train)
             if trip is None:
                 continue
@@ -470,6 +478,8 @@ class Repository:
         from .timeutil import TZ
 
         for grid in self.grids.grids:
+            if grid.effective and travel_date < grid.effective:
+                continue
             trip = find_trip(grid, train_number)
             if trip is None:
                 continue
@@ -482,7 +492,7 @@ class Repository:
                 minutes = parse_clock(clock)
                 if minutes is None:
                     continue
-                if previous is not None and minutes < previous:
+                if previous is not None and minutes < previous and previous - minutes > 6 * 60:
                     day_offset += 1
                 previous = minutes
                 moment = datetime.combine(travel_date, datetime.min.time(), tzinfo=TZ) + timedelta(
@@ -674,7 +684,8 @@ class Repository:
         best: tuple[timedelta, datetime] | None = None
         fallback: datetime | None = None
 
-        for offset in (-1, 0, 1, 2):
+        offsets = (0, 1, 2) if arrival is None else (-1, 0, 1, 2)
+        for offset in offsets:
             candidate_date = travel_date + timedelta(days=offset)
             leg = self._find_leg(train_number, station_code, destination_code, candidate_date)
             if leg is None or leg.departure is None:

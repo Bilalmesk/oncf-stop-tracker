@@ -16,6 +16,8 @@ class FakeApp:
 
     def trip_status(self, **kwargs):
         self.calls.append(("trip_status", kwargs))
+        if kwargs["train"] == "ZZ999":
+            raise LookupError("train ZZ999 does not run between these stations")
         return {
             "train": kwargs["train"],
             "status": "running",
@@ -143,6 +145,54 @@ def test_destinations_route(fake_server):
     assert response.json()["destinations"][0]["code"] == "C"
     assert app.calls[0][0] == "destinations"
     assert app.calls[0][1]["station"] == "200"
+
+
+def test_services_invalid_date_returns_400(fake_server):
+    _, base = fake_server
+    response = requests.get(
+        base + "/api/services",
+        params={"from": "200", "to": "490", "date": "2026-13-40"},
+        timeout=5,
+    )
+    assert response.status_code == 400
+
+
+def test_journey_invalid_date_returns_400(fake_server):
+    _, base = fake_server
+    response = requests.get(
+        base + "/api/journey",
+        params={"train": "MA", "from": "200", "to": "490", "date": "nope"},
+        timeout=5,
+    )
+    assert response.status_code == 400
+
+
+def test_trip_status_unknown_train_returns_404(fake_server):
+    _, base = fake_server
+    response = requests.get(
+        base + "/api/trip-status",
+        params={"train": "ZZ999", "from": "200", "to": "490", "date": "2026-11-27"},
+        timeout=5,
+    )
+    assert response.status_code == 404
+
+
+def test_verify_requires_valid_time(fake_server):
+    _, base = fake_server
+    missing = requests.get(base + "/api/verify", timeout=5)
+    malformed = requests.get(
+        base + "/api/verify",
+        params={"train": "301", "station": "OUJDA", "time": "not-a-time"},
+        timeout=5,
+    )
+    assert missing.status_code == 400
+    assert malformed.status_code == 400
+
+
+def test_reports_invalid_date_returns_400(fake_server):
+    _, base = fake_server
+    response = requests.get(base + "/api/reports", params={"date": "notadate"}, timeout=5)
+    assert response.status_code == 400
 
 
 def test_punctuality_route(fake_server):

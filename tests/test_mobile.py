@@ -46,6 +46,18 @@ class FakeMobileClient:
         return self.payload
 
 
+def test_delay_minutes_rejects_malformed_clock_values():
+    assert delay_minutes("bad", "10:00:00") == 0
+    assert delay_minutes("10:99:00", "11:00:00") == 0
+    assert delay_minutes("23:22:00", "00:05:00") == 43
+
+
+def test_parse_departures_tolerates_malformed_payloads():
+    assert parse_departures([]) == []
+    assert parse_departures({"head": [1], "body": []}) == []
+    assert parse_departures({"body": {"trains": [{}]}}) == []
+
+
 def test_parse_departures_enriches_live_rows():
     stations = catalog()
     departures = parse_departures(load("mobile_departing_231.json"), stations)

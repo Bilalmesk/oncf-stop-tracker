@@ -49,16 +49,22 @@ def parse_local(value: str | None) -> datetime | None:
     if not match:
         return None
     parts = {k: int(v) if v is not None else 0 for k, v in match.groupdict().items()}
-    return datetime(
-        parts["y"], parts["m"], parts["d"], parts["H"], parts["M"], parts["S"], tzinfo=TZ
-    )
+    try:
+        return datetime(
+            parts["y"], parts["m"], parts["d"], parts["H"], parts["M"], parts["S"], tzinfo=TZ
+        )
+    except ValueError:
+        return None
 
 
 def parse_aware(value: str | None) -> datetime | None:
     """Parse a genuinely offset-aware timestamp (used for retrieval metadata)."""
     if not value:
         return None
-    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
     return dt if dt.tzinfo else localize(dt)
 
 
@@ -69,7 +75,12 @@ def gtfs_time_to_datetime(service_date: date, value: str | None) -> datetime | N
     clock = value.strip()
     if not clock:
         return None
-    hh, mm, ss = (int(part) for part in clock.split(":"))
+    try:
+        hh, mm, ss = (int(part) for part in clock.split(":"))
+    except (TypeError, ValueError):
+        return None
+    if hh < 0 or not (0 <= mm <= 59 and 0 <= ss <= 59):
+        return None
     midnight = datetime.combine(service_date, time(0, 0), tzinfo=TZ)
     return midnight + timedelta(hours=hh, minutes=mm, seconds=ss)
 

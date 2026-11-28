@@ -297,10 +297,19 @@ def _pdf_check(train: str, station_name: str, stop, pdf_dir: str) -> None:
         print("PDF check: no coverage for this train/station in the downloaded grids")
 
 
-def cmd_grid(args: argparse.Namespace) -> int:
+def _grid_library(directory: str | Path):
     from .grid import GridLibrary
 
-    library = GridLibrary.load_dir(args.dir)
+    path = Path(directory)
+    if path == Path(GRID_DIR):
+        automatic = GridLibrary.load_dir(AUTO_GRID_DIR)
+        if len(automatic):
+            return automatic
+    return GridLibrary.load_dir(path)
+
+
+def cmd_grid(args: argparse.Namespace) -> int:
+    library = _grid_library(args.dir)
     if not len(library):
         print(f"No parseable grid PDFs in {args.dir}")
         return 1
@@ -312,9 +321,7 @@ def cmd_grid(args: argparse.Namespace) -> int:
 
 
 def cmd_identify(args: argparse.Namespace) -> int:
-    from .grid import GridLibrary
-
-    library = GridLibrary.load_dir(args.dir)
+    library = _grid_library(args.dir)
     matches = library.identify(args.station, args.time, tolerance_minutes=args.tolerance)
     if not matches:
         print(f"No printed train at {args.station} around {args.time}.")

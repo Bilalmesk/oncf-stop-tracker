@@ -8,11 +8,20 @@ Design rules (from the project brief):
 """
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from enum import Enum
 
 TIMEZONE = "Africa/Casablanca"
+
+
+def search_key(value: str | None) -> str:
+    """Fold text for accent-, case- and punctuation-insensitive search."""
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = text.casefold().replace("’", "'").replace("-", " ")
+    return "".join(text.split())
 
 
 class DataType(str, Enum):
@@ -67,11 +76,11 @@ class Station:
         return self.name_fr
 
     def matches(self, query: str) -> bool:
-        q = query.strip().casefold()
+        q = search_key(query.strip())
         if not q:
             return True
         return any(
-            q in (value or "").casefold()
+            q in search_key(value)
             for value in (self.name_fr, self.name_ar, self.name_en, self.code)
         )
 

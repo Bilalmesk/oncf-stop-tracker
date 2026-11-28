@@ -3997,8 +3997,14 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.getElementById("swapBtn").onclick = () => {
-  const a = fromCombo.value, b = toCombo.value;
-  fromCombo.setValue(b); toCombo.setValue(a);
+  const fromValue = fromCombo.value;
+  const toValue = toCombo.value;
+  const fromLabel = fromCombo.input.value.trim();
+  const toLabel = toCombo.input.value.trim();
+  if (toValue) fromCombo.setSelectedQuiet({ value: toValue, label: toLabel || toValue });
+  else fromCombo.setValue("");
+  if (fromValue) toCombo.setSelectedQuiet({ value: fromValue, label: fromLabel || fromValue });
+  else toCombo.setValue("");
   loadServices();
 };
 

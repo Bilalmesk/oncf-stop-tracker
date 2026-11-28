@@ -43,6 +43,16 @@ def _find_service_date(feed: GtfsFeed, train: str) -> date:
     pytest.skip(f"train {train} not found in feed calendar")
 
 
+def test_implausible_gtfs_trips_are_filtered(feed):
+    friday = date(2026, 11, 27)
+    trip_ids = {trip.trip_id for trip in feed.trips_on(friday)}
+    assert "604_S0123" not in trip_ids
+    assert not any(trip_id.startswith("N1080S1") for trip_id in trip_ids)
+    assert not any(trip_id.startswith("N1310") for trip_id in trip_ids)
+    with pytest.raises(LookupError):
+        feed.journey("604_S0123", friday)
+
+
 def test_casa_oujda_train_ma_is_present(feed):
     travel_date = _find_service_date(feed, "MA")
     trips = feed.trips_between("200", "490", travel_date, train_number="MA")

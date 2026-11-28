@@ -51,6 +51,22 @@ def test_delay_requires_valid_minutes(tmp_path):
         store.add(kind="departure_delay", train="MA", minutes=601)
 
 
+def test_float_minutes_are_rejected(tmp_path):
+    store = make_store(tmp_path)
+    with pytest.raises(ValueError):
+        store.add(kind="departure_delay", train="MA", minutes=10.9)
+
+
+def test_list_rejects_non_iso_date(tmp_path):
+    store = make_store(tmp_path)
+    store.add(kind="other", train="MA", date="2026-11-27")
+    with pytest.raises(ValueError):
+        store.add(kind="other", train="MA", date="20261127")
+    with pytest.raises(ValueError):
+        store.list(date="20261127")
+    assert len(store.list(date="2026-11-27")) == 1
+
+
 def test_unknown_kind_and_missing_train_are_rejected(tmp_path):
     store = make_store(tmp_path)
     with pytest.raises(ValueError):
@@ -89,6 +105,29 @@ def test_confirm_and_dispute_votes_from_two_clients(tmp_path):
     assert confirmed["confirmations"] == 1
     assert disputed["confirmations"] == 1
     assert disputed["disputes"] == 1
+
+
+def test_vote_tolerates_corrupt_stored_counts(tmp_path):
+    path = tmp_path / "reports.json"
+    path.write_text(
+        """[
+          {
+            "id": "corrupt1",
+            "kind": "other",
+            "train": "MA",
+            "created_at": "2026-11-27T11:00:00+00:00",
+            "expires_at": "2026-11-27T17:00:00+00:00",
+            "confirmations": "abc",
+            "disputes": null,
+            "votes": {}
+          }
+        ]""",
+        encoding="utf-8",
+    )
+    store = ReportStore(path, now=lambda: NOW)
+    report = store.vote("corrupt1", "confirm", client_id="client-aaa")
+    assert report["confirmations"] == 1
+    assert report["disputes"] == 0
 
 
 def test_repeating_the_same_vote_is_idempotent(tmp_path):

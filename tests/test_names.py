@@ -19,6 +19,12 @@ def test_common_unaccented_names_are_displayed_with_accents():
     assert clean_station_name("Sale") == "Salé"
 
 
+def test_supratours_markers_are_removed_from_station_names():
+    assert clean_station_name("AGADIR  (SUPRAT.)") == "AGADIR"
+    assert clean_station_name("INEZGANE (SUPRAT)") == "INEZGANE"
+    assert clean_station_name("Aeroport Med V (suprat.)") == "Aéroport Mohammed V"
+
+
 def test_station_name_is_unchanged_when_unknown():
     assert clean_station_name("Casa Voyageurs") == "Casa Voyageurs"
     assert clean_station_name("  ") == ""

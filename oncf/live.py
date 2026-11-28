@@ -42,10 +42,11 @@ from .config import (
     ensure_dirs,
 )
 from .gtfs import GtfsFeed
-from .grid import GridLibrary
+from .grid import GridLibrary, parse_clock
 from .grid_refresh import read_status
 from .mobile import LiveDeparturesService, MobileOncfClient
 from .models import Journey
+from .names import clean_station_name
 from .repository import Repository, trim_to_segment
 from .reports import ReportRateLimited, ReportStore
 from .punctuality import PunctualityLog
@@ -78,7 +79,7 @@ def journey_payload(
             {
                 "code": stop.station.code,
                 "name": {
-                    "fr": stop.station.name_fr,
+                    "fr": clean_station_name(stop.station.name_fr),
                     "ar": stop.station.name_ar,
                     "en": stop.station.name_en,
                 },
@@ -325,7 +326,7 @@ class LiveApp:
             return list(city.station_codes), city.name_fr
         try:
             station = self.catalog.resolve(text)
-            return [station.code], station.display_name
+            return [station.code], clean_station_name(station.display_name)
         except KeyError:
             city = self.cities.resolve(text)
             if not city.station_codes:
@@ -344,7 +345,7 @@ class LiveApp:
             stations.append(
                 {
                     "code": station.code,
-                    "name": station.name_fr,
+                    "name": clean_station_name(station.name_fr),
                     "ar": station.name_ar,
                     "city": city.name_fr if city else None,
                     "lat": station.latitude,
@@ -492,6 +493,13 @@ class LiveApp:
                         merged[item["code"]] = item
         destinations = sorted(merged.values(), key=lambda item: item["departure"])[:limit]
         for item in destinations:
+            name = item.get("name")
+            if not name or name == item.get("code"):
+                station = self.catalog.maybe_get(str(item.get("code") or ""))
+                if station is not None:
+                    name = station.name_fr
+                    item["ar"] = station.name_ar
+            item["name"] = clean_station_name(name)
             for key in ("departure", "arrival"):
                 if item.get(key):
                     try:
@@ -779,6 +787,14 @@ def make_handler(app: LiveApp):
                 train = (query.get("train") or [""])[0]
                 station = (query.get("station") or [""])[0]
                 time_text = (query.get("time") or [""])[0]
+                if not (train and station and time_text):
+                    self._send_json(
+                        {"error": "train, station and time are required"}, 400
+                    )
+                    return
+                if parse_clock(time_text) is None:
+                    self._send_json({"error": "time must be HH:MM"}, 400)
+                    return
                 result = app.grids.verify(train, station, time_text)
                 self._send_json(
                     {
@@ -831,7 +847,7 @@ def make_handler(app: LiveApp):
                             "type": "station",
                             "value": station.code,
                             "code": station.code,
-                            "name": station.name_fr,
+                            "name": clean_station_name(station.name_fr),
                             "ar": station.name_ar,
                             "city": city.name_fr if city else None,
                         }
@@ -850,7 +866,7 @@ def make_handler(app: LiveApp):
                         "stations": [
                             {
                                 "code": s.code,
-                                "name": s.name_fr,
+                                "name": clean_station_name(s.name_fr),
                                 "ar": s.name_ar,
                                 "en": s.name_en,
                                 "lat": s.latitude,
@@ -869,6 +885,8 @@ def make_handler(app: LiveApp):
                         (query.get("to") or [""])[0],
                         travel_date,
                     )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
                 except KeyError as exc:
                     self._send_json({"error": str(exc.args[0] if exc.args else exc)}, 404)
                 except Exception as exc:
@@ -886,7 +904,7 @@ def make_handler(app: LiveApp):
                         (query.get("date") or [date.today().isoformat()])[0]
                     )
                     try:
-                        limit = int((query.get("limit") or ["60"])[0])
+                        limit = max(1, min(100, int((query.get("limit") or ["60"])[0])))
                     except ValueError:
                         limit = 60
                     payload = app.destinations(
@@ -926,7 +944,7 @@ def make_handler(app: LiveApp):
                     )
                 except ValueError as exc:
                     self._send_json({"error": str(exc)}, 400)
-                except KeyError as exc:
+                except (KeyError, LookupError) as exc:
                     self._send_json({"error": str(exc.args[0] if exc.args else exc)}, 404)
                 except Exception as exc:  # keep the UI alive on source failures
                     self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 502)
@@ -934,11 +952,18 @@ def make_handler(app: LiveApp):
                     self._send_json(payload)
                 return
             if parsed.path == "/api/reports":
+                date_text = (query.get("date") or [None])[0]
+                if date_text:
+                    try:
+                        date.fromisoformat(date_text)
+                    except ValueError:
+                        self._send_json({"error": "date must be YYYY-MM-DD"}, 400)
+                        return
                 try:
                     payload = app.list_reports(
                         train=(query.get("train") or [None])[0],
                         station=(query.get("station") or [None])[0],
-                        date=(query.get("date") or [None])[0],
+                        date=date_text,
                         active_only=(query.get("active") or ["1"])[0].lower()
                         in {"1", "true", "yes"},
                         client_id=(query.get("client_id") or [None])[0],
@@ -961,6 +986,8 @@ def make_handler(app: LiveApp):
                         (query.get("official") or [None])[0],
                         (query.get("verify_all") or ["0"])[0].lower() in {"1", "true", "yes"},
                     )
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
                 except KeyError as exc:
                     self._send_json({"error": str(exc.args[0] if exc.args else exc)}, 404)
                 except LookupError as exc:

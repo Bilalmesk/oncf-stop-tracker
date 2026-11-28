@@ -86,6 +86,13 @@ class ReportStore:
             value = value.replace(tzinfo=UTC)
         return value
 
+    @staticmethod
+    def _count(value: Any) -> int:
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
     def _public(
         self,
         report: dict[str, Any],
@@ -108,6 +115,8 @@ class ReportStore:
         payload = {key: value for key, value in report.items() if key != "votes"}
         return {
             **payload,
+            "confirmations": self._count(report.get("confirmations")),
+            "disputes": self._count(report.get("disputes")),
             "active": active,
             "age_minutes": age,
             "expires_in_minutes": expires_in,
@@ -152,13 +161,18 @@ class ReportStore:
         clean_date = self._clean_text(date, field="date", limit=10)
         if clean_date:
             try:
-                clean_date = date_type.fromisoformat(clean_date).isoformat()
+                parsed_date = date_type.fromisoformat(clean_date)
             except ValueError as exc:
                 raise ValueError("date must be YYYY-MM-DD") from exc
+            if parsed_date.isoformat() != clean_date:
+                raise ValueError("date must be YYYY-MM-DD")
+            clean_date = parsed_date.isoformat()
         clean_message = self._clean_text(message, field="message", limit=MAX_MESSAGE)
 
         clean_minutes: int | None = None
         if clean_kind == "departure_delay":
+            if isinstance(minutes, float) and not minutes.is_integer():
+                raise ValueError("minutes must be an integer")
             try:
                 clean_minutes = int(minutes or 0)
             except (TypeError, ValueError) as exc:
@@ -216,6 +230,16 @@ class ReportStore:
         client = self._clean_client(client_id) if client_id else None
         train_key = str(train or "").strip().upper()
         station_key = str(station or "").strip().upper()
+        date_key = None
+        if date:
+            raw_date = str(date).strip()
+            try:
+                parsed_date = date_type.fromisoformat(raw_date)
+            except ValueError as exc:
+                raise ValueError("date must be YYYY-MM-DD") from exc
+            if parsed_date.isoformat() != raw_date:
+                raise ValueError("date must be YYYY-MM-DD")
+            date_key = parsed_date.isoformat()
         with self._lock:
             reports = self._load()
         out: list[dict[str, Any]] = []
@@ -224,7 +248,7 @@ class ReportStore:
                 continue
             if station_key and str(report.get("station") or "").upper() != station_key:
                 continue
-            if date and report.get("date") != date:
+            if date_key and report.get("date") != date_key:
                 continue
             item = self._public(report, now, client)
             if active_only and not item["active"]:
@@ -258,11 +282,11 @@ class ReportStore:
                 if previous == choice:
                     return self._public(report, now, client)
                 if previous == "confirm":
-                    report["confirmations"] = max(0, int(report.get("confirmations") or 0) - 1)
+                    report["confirmations"] = max(0, self._count(report.get("confirmations")) - 1)
                 elif previous == "dispute":
-                    report["disputes"] = max(0, int(report.get("disputes") or 0) - 1)
+                    report["disputes"] = max(0, self._count(report.get("disputes")) - 1)
                 key = "confirmations" if choice == "confirm" else "disputes"
-                report[key] = int(report.get(key) or 0) + 1
+                report[key] = self._count(report.get(key)) + 1
                 votes[client] = choice
                 self._save(reports)
                 return self._public(report, now, client)

@@ -98,6 +98,49 @@ def test_empty_and_missing_fields_are_ignored(tmp_path):
     assert log.record("200", [{"train": "A"}]) == 0
 
 
+def test_midnight_polling_the_same_departure_is_deduped(tmp_path):
+    path = tmp_path / "observations.jsonl"
+    before = PunctualityLog(
+        path, now=lambda: datetime(2026, 11, 27, 23, 59, tzinfo=timezone.utc)
+    )
+    departure = [
+        {
+            "train": "N1",
+            "scheduled": "00:05:00",
+            "real": "00:05:00",
+            "delay_minutes": 0,
+            "delay_level": 0,
+        }
+    ]
+    assert before.record("200", departure) == 1
+    after = PunctualityLog(
+        path, now=lambda: datetime(2026, 11, 28, 0, 1, tzinfo=timezone.utc)
+    )
+    assert after.record("200", departure) == 0
+    assert after.summary(days=7)["sample_size"] == 1
+
+
+def test_corrupt_delay_row_is_not_counted_in_stations_or_trains(tmp_path):
+    path = tmp_path / "observations.jsonl"
+    path.write_text(
+        "\n".join(
+            [
+                '{"observed_at":"2026-11-28T11:00:00+00:00","date":"2026-11-28",'
+                '"station":"200","train":"A","scheduled":"10:00:00","real":"10:01:00",'
+                '"delay_minutes":1,"delay_level":0}',
+                '{"observed_at":"2026-11-28T11:01:00+00:00","date":"2026-11-28",'
+                '"station":"231","train":"B","scheduled":"10:00:00","real":"10:01:00",'
+                '"delay_minutes":"abc","delay_level":0}',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    summary = PunctualityLog(path, now=lambda: NOW).summary(days=7)
+    assert summary["sample_size"] == 1
+    assert summary["stations"] == 1
+    assert summary["trains"] == 1
+
+
 def test_corrupt_lines_do_not_break_the_summary(tmp_path):
     path = tmp_path / "observations.jsonl"
     path.write_text("{bad json\n", encoding="utf-8")

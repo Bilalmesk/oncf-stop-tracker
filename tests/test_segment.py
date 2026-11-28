@@ -61,6 +61,18 @@ def test_trim_keeps_only_the_requested_segment():
     assert any("continues beyond" in note for note in trimmed.notes)
 
 
+def test_trim_rejects_reverse_direction():
+    journey = make_journey()
+    with pytest.raises(LookupError):
+        trim_to_segment(journey, ["231"], ["200"])
+
+
+def test_trim_rejects_unknown_origin():
+    journey = make_journey()
+    with pytest.raises(LookupError):
+        trim_to_segment(journey, ["999"], ["231"])
+
+
 def test_trim_noop_when_already_the_segment():
     journey = make_journey()
     trimmed = trim_to_segment(journey, ["110"], ["380"])

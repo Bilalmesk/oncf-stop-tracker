@@ -79,6 +79,11 @@ def summarize_stop(stop: Stop, service_date: date) -> StopSummary:
                 "arrival equals departure: may be a rounding artefact or a "
                 "pass-through, not a measured zero-minute stop"
             )
+        elif delta < timedelta(minutes=1):
+            warnings.append(
+                "arrival and departure are less than one minute apart; "
+                "the rounded duration is 0 min"
+            )
         elif delta > PLAUSIBLE_MAX_STOP:
             warnings.append(
                 f"dwell of {minutes} min exceeds {int(PLAUSIBLE_MAX_STOP.total_seconds() // 3600)} h; "
