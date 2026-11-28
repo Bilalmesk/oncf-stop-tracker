@@ -500,10 +500,14 @@
         <div class="tools-row">
           <label for="basemap">Style</label>
           <select id="basemap" title="Map style" aria-label="Map style">
-            <option value="streets">Detailed</option>
-            <option value="satellite">Satellite</option>
             <option value="night" selected>Night</option>
+            <option value="positron">Positron</option>
+            <option value="bright">Bright</option>
+            <option value="liberty">Liberty</option>
+            <option value="dark">Dark</option>
             <option value="fiord">Fiord</option>
+            <option value="3d">3D</option>
+            <option value="satellite">Satellite</option>
             <option value="terrain">Terrain</option>
           </select>
         </div>
@@ -1106,8 +1110,14 @@ let journeyLoaded = false;
 let cityLabelLayer = null;
 let journeyFocus = false;
 
+const VECTOR_ONLY_STYLES = new Set([
+  "positron", "bright", "liberty", "dark", "fiord", "3d",
+]);
+const isVectorOnlyStyle = (name) => VECTOR_ONLY_STYLES.has(name);
+
 function setBasemap(name) {
-  const fiordPlaceholder = name === "fiord";
+  const vectorOnly = isVectorOnlyStyle(name);
+  const wanted = name;
   if (!basemaps[name]) name = "satellite";
   if (baseLayer) map.removeLayer(baseLayer);
   if (nightTint) { map.removeLayer(nightTint); nightTint = null; }
@@ -1129,11 +1139,11 @@ function setBasemap(name) {
   document.body.classList.toggle("sat-base", name === "satellite");
   document.body.classList.toggle("night-base", name === "night");
   const select = document.getElementById("basemap");
-  if (select && !fiordPlaceholder) select.value = name;
+  if (select && !vectorOnly) select.value = name;
   // Satellite imagery and the tinted night view have no place names, so our
   // own bilingual labels are shown on them. Street/terrain already carry labels.
   syncCityLabels();
-  if (fiordPlaceholder) localStorage.setItem("oncf:basemap3", "fiord");
+  if (vectorOnly) localStorage.setItem("oncf:basemap3", wanted);
   else if (basemaps[name]) localStorage.setItem("oncf:basemap3", name);
 }
 
@@ -3971,15 +3981,16 @@ document.getElementById("moroccoBtn").onclick = () => {
   else if (moroccoBounds) map.fitBounds(moroccoBounds.pad(0.015));
 };
 document.getElementById("basemap").onchange = (event) => {
-  if (event.target.value === "fiord") localStorage.setItem("oncf:basemap3", "fiord");
-  if (event.target.value === "fiord" && currentEngine !== "vector") {
+  const value = event.target.value;
+  localStorage.setItem("oncf:basemap3", value);
+  if (isVectorOnlyStyle(value) && currentEngine !== "vector") {
     setEngine("vector");
     syncPlacesButton();
     return;
   }
   const engine = activeMap();
-  if (engine && engine.setBasemap) engine.setBasemap(event.target.value);
-  else setBasemap(event.target.value);
+  if (engine && engine.setBasemap) engine.setBasemap(value);
+  else setBasemap(value);
   syncPlacesButton();
 };
 map.on("zoomend", () => {
@@ -4133,7 +4144,7 @@ function activeMap() {
 
 function setEngine(name, persist = true) {
   if (!["vector", "mapbox", "google", "classic"].includes(name)) name = "classic";
-  if (name === "classic" && document.getElementById("basemap").value === "fiord") {
+  if (name === "classic" && isVectorOnlyStyle(document.getElementById("basemap").value)) {
     document.getElementById("basemap").value = "night";
     localStorage.setItem("oncf:basemap3", "night");
   }
@@ -4196,7 +4207,7 @@ function setEngine(name, persist = true) {
       });
   } else {
     map.invalidateSize();
-    setBasemap(document.getElementById("basemap").value || "streets");
+    setBasemap(document.getElementById("basemap").value || "liberty");
     if (state.shape.length) fitRoute();
   }
   syncPlacesButton();
@@ -4207,11 +4218,11 @@ const placesButton = document.getElementById("placesBtn");
 
 function syncPlacesButton() {
   const style = document.getElementById("basemap").value;
-  const supported = currentEngine === "vector" && !["night", "satellite", "fiord"].includes(style);
+  const supported = currentEngine === "vector" && !["night", "satellite", "positron", "fiord"].includes(style);
   placesButton.classList.toggle("active", supported && placesVisible);
   placesButton.title = supported
     ? "Show cafés, restaurants and landmarks"
-    : "Places are on the Detailed style — click to switch";
+    : "Places are on the Liberty style — click to switch";
 }
 
 placesButton.onclick = () => {
@@ -4219,17 +4230,17 @@ placesButton.onclick = () => {
   const vectorHasPois = !!(vectorMap && vectorMap.getLayer("poi_r1"));
 
   // Night and satellite have no POI layers, and Classic/Mapbox/Google do not
-  // share the Detailed stack. In those cases Places means "switch me to the
-  // detailed map with places on", not "toggle the last state off".
+  // share the Liberty stack. In those cases Places means "switch me to the
+  // Liberty map with places on", not "toggle the last state off".
   if (currentEngine !== "vector" || !vectorHasPois) {
     placesVisible = true;
     localStorage.setItem("oncf:places", "1");
-    document.getElementById("basemap").value = "streets";
+    document.getElementById("basemap").value = "liberty";
     if (currentEngine !== "vector") setEngine("vector");
-    else VectorMap.setBasemap("streets");
+    else VectorMap.setBasemap("liberty");
     if (window.VectorMap) VectorMap.setPlacesVisible(true);
     syncPlacesButton();
-    showBanner("Places on: switched to the Detailed style. Major places appear from zoom 12.", 5000);
+    showBanner("Places on: switched to the Liberty style. Major places appear from zoom 12.", 5000);
     return;
   }
 
@@ -4279,9 +4290,14 @@ async function boot() {
   loadNetwork();
   loadTraffic();
   if (!p.get("train")) initLiveDepartures();
-  if (localStorage.getItem("oncf:basemap3") === "fiord") {
+  let storedStyle = localStorage.getItem("oncf:basemap3");
+  if (storedStyle === "streets" || storedStyle === "detailed") {
+    storedStyle = "liberty";
+    localStorage.setItem("oncf:basemap3", storedStyle);
+  }
+  if (isVectorOnlyStyle(storedStyle)) {
     currentEngine = "vector";
-    document.getElementById("basemap").value = "fiord";
+    document.getElementById("basemap").value = storedStyle;
   }
   setEngine(currentEngine, false);
 

@@ -36,8 +36,9 @@ a separate private repository.
   station, recent routes, direct-train preselection.
 - **Selected trip ribbon** — white/amber glowing route, animated direction
   dashes, green **Start** / red **End** markers, travelled portion filled amber.
-- **Night map** — dark vector map by default, with **Fiord** (blue), Classic
-  Leaflet, satellite, streets and terrain available.
+- **Night map** — dark vector map by default, with all OpenFreeMap styles
+  (Positron, Bright, Liberty, Dark, Fiord, 3D side view), Classic Leaflet,
+  satellite and terrain available.
 - **Traffic notices** — official works/service notices from the gateway.
 - **Station search, stops, dwell times, GPS, proximity alerts and fullscreen.**
 
@@ -220,7 +221,18 @@ upstream. No upstream hostnames, keys or cookies are part of this repository.
 
 ## Map
 
-The default **Vector** engine uses MapLibre GL and a dark **Night** style:
+The default **Vector** engine uses MapLibre GL and a dark **Night** style. The
+OpenFreeMap styles are available from the same selector:
+
+- **Night** — CARTO Dark Matter (default);
+- **Positron** — light minimal;
+- **Bright** — light detailed;
+- **Liberty** — detailed OSM-style streets/buildings;
+- **Dark** — dark minimal;
+- **Fiord** — blue minimal;
+- **3D** — Liberty with a pitched side view (55°) and building extrusions;
+- **Satellite** — Esri imagery;
+- **Terrain** — Classic/Leaflet terrain.
 
 - full Morocco network, stations, bilingual labels;
 - selected journey ribbon with progress fill and direction dashes;
@@ -229,8 +241,8 @@ The default **Vector** engine uses MapLibre GL and a dark **Night** style:
 
 The **Classic** engine uses Leaflet with Night (Esri imagery + dark tint),
 Satellite, Streets and Terrain. **3D map** adds pitch and building extrusions.
-**Fiord** is the blue OpenFreeMap vector style; selecting it switches to the
-Vector engine automatically and is remembered across reloads.
+OpenFreeMap vector-only styles (Positron, Bright, Liberty, Dark, Fiord, 3D)
+automatically switch to the Vector engine and are remembered across reloads.
 See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
 
 ## Honesty

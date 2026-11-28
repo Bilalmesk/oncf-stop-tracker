@@ -10,7 +10,7 @@ Stars are the values returned by the GitHub API at the time of the survey.
 | Repository | What it offers | Licence | Stars | Verdict |
 |---|---|---|---|---|
 | [hyperknot/openfreemap](https://github.com/hyperknot/openfreemap) | Free OpenStreetMap vector tiles and styles; no API key | NOASSERTION | 6 527 | **Already used** by the 3D engine. Best free vector option. |
-| [hyperknot/openfreemap-styles](https://github.com/hyperknot/openfreemap-styles) | Liberty / Bright / Positron style sources | NOASSERTION | 276 | **Used.** Liberty is the Detailed basemap (Night 3D is the default). |
+| [hyperknot/openfreemap-styles](https://github.com/hyperknot/openfreemap-styles) | Positron / Bright / Liberty / Dark / Fiord style sources | NOASSERTION | 276 | **Used.** All five styles plus a pitched 3D mode are selectable; Night 3D remains the default. |
 | [OpenRailwayMap/OpenRailwayMap](https://github.com/OpenRailwayMap/OpenRailwayMap) | OSM railway-infrastructure overlay (tracks, signals, yards) | GPL-3.0 | 523 | **Not used.** Our GTFS network already shows the lines; the overlay adds clutter and GPL/tile-use questions. |
 | [bbecquet/Leaflet.PolylineDecorator](https://github.com/bbecquet/Leaflet.PolylineDecorator) | Arrow/dash patterns along polylines | MIT | 521 | **Idea used.** Implemented animated direction dashes with native SVG instead of a dependency. |
 | [Norkart/Leaflet-MiniMap](https://github.com/Norkart/Leaflet-MiniMap) | Overview inset | BSD-2-Clause | 390 | **Not used.** The Morocco/Fit buttons already give context; an inset would cover the map. |

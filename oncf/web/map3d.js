@@ -28,6 +28,9 @@
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
   const OFM_PLANET = "https://tiles.openfreemap.org/planet";
   const OFM_LIBERTY = "https://tiles.openfreemap.org/styles/liberty";
+  const OFM_POSITRON = "https://tiles.openfreemap.org/styles/positron";
+  const OFM_BRIGHT = "https://tiles.openfreemap.org/styles/bright";
+  const OFM_DARK = "https://tiles.openfreemap.org/styles/dark";
   const OFM_FIORD = "https://tiles.openfreemap.org/styles/fiord";
   const CARTO_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
@@ -737,15 +740,27 @@
     map.easeTo({ pitch: map.getPitch() > 10 ? 0 : 55, duration: 600 });
   }
 
+  function styleFor(name) {
+    if (name === "satellite") return satelliteStyle();
+    if (name === "night") return CARTO_DARK;
+    if (name === "positron") return OFM_POSITRON;
+    if (name === "bright") return OFM_BRIGHT;
+    if (name === "dark") return OFM_DARK;
+    if (name === "fiord") return OFM_FIORD;
+    return OFM_LIBERTY;
+  }
+
   function setBasemap(name) {
     if (!map) return;
-    basemap = name === "detailed" ? "streets" : name;
+    const target = name === "detailed" || name === "streets" ? "liberty" : name;
+    basemap = target;
     installed = false;
-    if (name === "satellite") map.setStyle(satelliteStyle());
-    else if (name === "night") map.setStyle(CARTO_DARK);
-    else if (name === "fiord") map.setStyle(OFM_FIORD);
-    else if (name === "streets" || name === "detailed" || name === "terrain") map.setStyle(OFM_LIBERTY);
-    else map.setStyle(OFM_LIBERTY);
+    map.setStyle(styleFor(target));
+    if (target === "3d") {
+      map.easeTo({ pitch: 55, bearing: -20, duration: 700 });
+    } else if (map.getPitch() > 0 || map.getBearing() !== 0) {
+      map.easeTo({ pitch: 0, bearing: 0, duration: 500 });
+    }
 
     // setStyle does not always emit style.load in time; install once the map
     // is idle, unless the style.load handler already did it.
@@ -779,16 +794,11 @@
     if (map) return map;
     map = new maplibregl.Map({
       container: containerId || "map3d",
-      style: basemap === "satellite"
-        ? satelliteStyle()
-        : basemap === "night"
-        ? CARTO_DARK
-        : basemap === "fiord"
-        ? OFM_FIORD
-        : OFM_LIBERTY,
+      style: styleFor(basemap),
       center: [-5.5, 33.9],
       zoom: 6,
-      pitch: 0,
+      pitch: basemap === "3d" ? 55 : 0,
+      bearing: basemap === "3d" ? -20 : 0,
       maxPitch: 70,
       attributionControl: true,
     });
@@ -798,6 +808,12 @@
     map.on("style.load", () => {
       ready = true;
       onStyleReady();
+    });
+    // Some browsers/cached styles finish before the style.load listener is
+    // attached; the idle fallback guarantees overlays and 3D buildings install.
+    map.once("idle", () => {
+      ready = true;
+      if (!installed) onStyleReady();
     });
     map.on("error", (event) => {
       const message = (event.error && event.error.message) || "";
