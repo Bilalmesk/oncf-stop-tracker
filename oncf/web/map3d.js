@@ -50,6 +50,7 @@
   let cityMarkers = [];
   let networkVisible = true;
   let placesVisible = true;
+  let displayOptions = { labels: 55, buildings: true, routeGlow: true };
   let journeyFocus = false;
   let journeyEndMarkers = [];
   let poiLayersBound = new Set();
@@ -158,6 +159,25 @@
     return placesVisible;
   }
 
+  function applyDisplayOptions() {
+    if (!map || !map.getStyle()) return;
+    for (const id of ["building-3d", "ofm-3d-buildings"]) {
+      if (!map.getLayer(id)) continue;
+      try { map.setLayoutProperty(id, "visibility", displayOptions.buildings ? "visible" : "none"); } catch (_) {}
+    }
+    for (const id of ["oncf-journey-glow", "oncf-journey-flow"]) {
+      if (!map.getLayer(id)) continue;
+      try { map.setLayoutProperty(id, "visibility", displayOptions.routeGlow ? "visible" : "none"); } catch (_) {}
+    }
+  }
+
+  function setDisplayOptions(options = {}) {
+    displayOptions = { ...displayOptions, ...options };
+    renderCityMarkers((networkData && networkData.cities) || []);
+    applyDisplayOptions();
+    return displayOptions;
+  }
+
   function installPoiInteractions() {
     if (!map || !map.getStyle()) return;
     for (const id of poiLayerIds()) {
@@ -192,17 +212,23 @@
   }
 
   function add3DBuildings() {
-    if (!map.getSource("ofm-3d")) {
+    // Liberty already ships an extruded `building-3d` layer on the same vector
+    // tiles. Reusing it avoids a second `ofm-3d` source and duplicate tile
+    // downloads, which is the main source of 3D loading jank.
+    if (map.getLayer("building-3d")) return;
+    if (map.getLayer("ofm-3d-buildings")) return;
+    const style = map.getStyle() || {};
+    const sourceId = ["openmaptiles", "ofm"].find((id) => style.sources && style.sources[id]);
+    if (!sourceId && !map.getSource("ofm-3d")) {
       map.addSource("ofm-3d", { type: "vector", url: OFM_PLANET });
     }
-    if (map.getLayer("ofm-3d-buildings")) return;
-    const layers = map.getStyle().layers || [];
+    const layers = style.layers || [];
     const firstSymbol = layers.find((layer) => layer.type === "symbol");
     map.addLayer(
       {
         id: "ofm-3d-buildings",
         type: "fill-extrusion",
-        source: "ofm-3d",
+        source: sourceId || "ofm-3d",
         "source-layer": "building",
         minzoom: 14,
         paint: {
@@ -486,6 +512,7 @@
     installOverlays();
     installPoiInteractions();
     applyPlacesVisibility();
+    applyDisplayOptions();
     applyJourneyFocus();
     replay();
   }
@@ -516,9 +543,10 @@
     cityMarkers = [];
     if (!map) return;
     const rank = (city) => (typeof cityRank === "function" ? cityRank(city) : 999);
-    const ranked = [...(cities || [])]
+    const limit = Math.max(0, Math.min(80, Number(displayOptions.labels) || 0));
+    const ranked = limit === 0 ? [] : [...(cities || [])]
       .sort((a, b) => rank(a) - rank(b) || b.stations - a.stations || a.name.localeCompare(b.name))
-      .slice(0, 80);
+      .slice(0, limit);
 
     ranked.forEach((city, index) => {
       const element = document.createElement("div");
@@ -535,7 +563,7 @@
   }
 
   function updateCityMarkers() {
-    if (!map) return;
+    if (!map || !displayOptions.labels || !cityMarkers.length) return;
     const showArabic = map.getZoom() >= 6;
     // City labels are context, not network lines: keep them when the Network
     // toggle is off. Only a focused trip hides them.
@@ -794,8 +822,9 @@
     applyJourneyFocus();
   }
 
-  function init(containerId) {
+  function init(containerId, initialBasemap) {
     if (map) return map;
+    if (initialBasemap) basemap = initialBasemap;
     map = new maplibregl.Map({
       container: containerId || "map3d",
       style: styleFor(basemap),
@@ -844,6 +873,7 @@
     setNetworkVisible,
     setJourneyFocus,
     setPlacesVisible,
+    setDisplayOptions,
     getPlacesVisible: () => placesVisible,
     fitMoroccoBounds: () => map && map.fitBounds(MOROCCO_BOUNDS, { padding: 20, duration: 0 }),
     resize: () => map && map.resize(),

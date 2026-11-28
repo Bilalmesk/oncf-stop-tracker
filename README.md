@@ -40,7 +40,8 @@ a separate private repository.
   dashes, green **Start** / red **End** markers, travelled portion filled amber.
 - **Night map** — dark vector map by default, with all OpenFreeMap styles
   (Positron, Bright, Liberty, Dark, Fiord, 3D side view), Classic Leaflet,
-  satellite and terrain available.
+  satellite and terrain, plus a Map settings dialog with performance modes and
+  layer toggles.
 - **Traffic notices** — official works/service notices from the gateway.
 - **Station search, stops, dwell times, GPS, proximity alerts and fullscreen.**
 
@@ -246,7 +247,14 @@ The **Classic** engine uses Leaflet with Night (Esri imagery + dark tint),
 Satellite, Streets and Terrain. **3D map** adds pitch and building extrusions.
 OpenFreeMap vector-only styles (Positron, Bright, Liberty, Dark, Fiord, 3D)
 automatically switch to the Vector engine and are remembered across reloads.
-See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map survey.
+
+The **Map settings** dialog adds **Auto / Smooth / High detail** quality modes,
+toggles for network, places, city labels, 3D buildings, route glow and train
+animation, plus fit/focus/Morocco/fullscreen/reset actions. Auto adapts label
+density and effects to the device. Only the key-free Vector and Classic engines
+are shown; Mapbox and Google are intentionally hidden and no API keys are
+requested. See [`docs/MAP_RESEARCH.md`](docs/MAP_RESEARCH.md) for the key-free map
+survey.
 
 ## Honesty
 

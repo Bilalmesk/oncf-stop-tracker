@@ -81,6 +81,41 @@
   .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .tools-grid .btn { justify-content: flex-start; text-align: left; padding: 7px 9px; font-size: 12px; }
   .tools-note { border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: 11px; }
+  .map-settings { width: min(460px, calc(100vw - 28px)); max-height: min(82vh, 760px);
+    padding: 0; color: var(--text); background: var(--panel); border: 1px solid #33415a;
+    border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+  .map-settings::backdrop { background: rgba(2, 7, 14, .58); backdrop-filter: blur(2px); }
+  .settings-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 15px 17px 13px; border-bottom: 1px solid var(--line); }
+  .settings-head h2 { margin: 2px 0 0; font-size: 20px; letter-spacing: -.02em; }
+  .settings-body { display: flex; flex-direction: column; gap: 16px; overflow-y: auto;
+    padding: 14px 17px 17px; max-height: calc(min(82vh, 760px) - 72px); }
+  .settings-section { display: flex; flex-direction: column; gap: 9px; }
+  .settings-section h3 { margin: 0; font-size: 11px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .09em; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .settings-row label { font-size: 12px; color: var(--text); }
+  .settings-row select { flex: 1; max-width: 230px; padding: 7px 8px; border-radius: 9px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text); cursor: pointer; }
+  .settings-hint { margin: -3px 0 0; color: var(--muted); font-size: 11px; }
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .settings-grid .btn { justify-content: flex-start; text-align: left; padding: 8px 10px; font-size: 12px; }
+  .settings-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding-top: 2px; }
+  .settings-check { display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; }
+  .settings-check input { accent-color: var(--amber); width: 15px; height: 15px; }
+  .settings-timetable { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding-top: 4px; }
+  .settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border-top: 1px solid var(--line); padding-top: 12px; }
+  .settings-footer .small { max-width: 62%; line-height: 1.35; }
+  @media (max-width: 600px) {
+    .map-settings { width: calc(100vw - 20px); max-height: 86vh; margin: auto auto 10px;
+      border-radius: 18px 18px 12px 12px; }
+    .settings-body { max-height: calc(86vh - 72px); }
+    .settings-checks { grid-template-columns: 1fr; }
+    .settings-footer { align-items: flex-start; flex-direction: column; }
+    .settings-footer .small { max-width: 100%; }
+  }
   kbd { background: #0f151d; border: 1px solid var(--line); border-bottom-width: 2px;
     border-radius: 4px; padding: 0 4px; font: 10px/1.5 ui-monospace, monospace; }
   select#basemap, select#engine { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
@@ -491,49 +526,11 @@
       <option value="fr">FR</option>
       <option value="ar">AR</option>
     </select>
-    <details class="tools-menu" id="mapTools">
-      <summary class="btn ghost" title="Map tools"><span data-i18n="nav.map">Map</span> <span class="chev">▾</span></summary>
-      <div class="tools-pop">
-        <div class="tools-row">
-          <label for="engine">Engine</label>
-          <select id="engine" title="Map engine" aria-label="Map engine">
-            <option value="vector">3D map</option>
-            <option value="mapbox">Mapbox</option>
-            <option value="google">Google</option>
-            <option value="classic">Classic</option>
-          </select>
-        </div>
-        <div class="tools-row">
-          <label for="basemap">Style</label>
-          <select id="basemap" title="Map style" aria-label="Map style">
-            <option value="night" selected>Night</option>
-            <option value="positron">Positron</option>
-            <option value="bright">Bright</option>
-            <option value="liberty">Liberty</option>
-            <option value="dark">Dark</option>
-            <option value="fiord">Fiord</option>
-            <option value="3d">3D</option>
-            <option value="satellite">Satellite</option>
-            <option value="terrain">Terrain</option>
-          </select>
-        </div>
-        <div class="tools-grid">
-          <button class="btn ghost" id="tiltBtn" title="Tilt the 3D map">3D tilt</button>
-          <button class="btn ghost" id="moroccoBtn" title="Show all of Morocco">Morocco</button>
-          <button class="btn ghost active" id="networkBtn" title="Show all lines and stations">Network</button>
-          <button class="btn ghost active" id="placesBtn" title="Show cafés, restaurants and landmarks">Places</button>
-          <button class="btn ghost" id="focusBtn" title="Isolate the selected trip from the network" hidden>Focus trip</button>
-          <button class="btn ghost" id="fitBtn" title="Show the whole route">Fit route</button>
-          <button class="btn ghost" id="refreshBtn" title="Re-fetch the journey now">Refresh trip</button>
-          <button class="btn ghost" id="locateBtn" title="Enable live GPS">Enable GPS</button>
-        </div>
-        <div class="tools-row">
-          <span class="small muted" id="gridStatus">Timetables: checking…</span>
-          <button class="link-btn" id="gridRefresh" type="button" title="Check the official timetable page now">Check now</button>
-        </div>
-        <div class="tools-note" data-i18n-html="tools.hint">Press <kbd>/</kbd> to find a station · <kbd>J</kbd> to plan a journey</div>
-      </div>
-    </details>
+    <button class="btn ghost" id="mapSettingsBtn" type="button"
+            title="Map settings" aria-label="Map settings" aria-haspopup="dialog"
+            data-i18n-title="settings.open" data-i18n-aria-label="settings.open">
+      <span aria-hidden="true">⚙</span> <span data-i18n="nav.map">Map</span>
+    </button>
     <button class="badge gps-pill" id="gpsBadge" type="button" title="Enable live GPS">GPS: off</button>
     <span id="clock" class="badge live" title="Current time in Morocco">--:--:--</span>
   </header>
@@ -829,6 +826,88 @@
   </form>
 </dialog>
 
+<!-- ------------------------- map settings dialog ------------------------- -->
+<dialog id="mapSettingsDialog" class="map-settings" aria-labelledby="mapSettingsTitle">
+  <div class="settings-head">
+    <div>
+      <div class="eyebrow" data-i18n="settings.map">Map</div>
+      <h2 id="mapSettingsTitle" data-i18n="settings.title">Map settings</h2>
+    </div>
+    <button class="btn ghost small" id="mapSettingsClose" type="button" data-i18n="settings.close">Close</button>
+  </div>
+  <div class="settings-body">
+    <section class="settings-section">
+      <h3 data-i18n="settings.display">Display</h3>
+      <div class="settings-row">
+        <label for="engine" data-i18n="settings.engine">Engine</label>
+        <select id="engine" title="Map engine" aria-label="Map engine">
+          <option value="vector" data-i18n="settings.engineVector">3D / Vector</option>
+          <option value="classic" data-i18n="settings.engineClassic">Classic (light)</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label for="basemap" data-i18n="settings.style">Style</label>
+        <select id="basemap" title="Map style" aria-label="Map style">
+          <option value="night" selected>Night</option>
+          <option value="positron">Positron</option>
+          <option value="bright">Bright</option>
+          <option value="liberty">Liberty</option>
+          <option value="dark">Dark</option>
+          <option value="fiord">Fiord</option>
+          <option value="3d">3D</option>
+          <option value="satellite">Satellite</option>
+          <option value="terrain">Terrain</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label for="mapQuality" data-i18n="settings.quality">Quality</label>
+        <select id="mapQuality">
+          <option value="auto" data-i18n="settings.qualityAuto">Auto</option>
+          <option value="smooth" data-i18n="settings.qualitySmooth">Smooth</option>
+          <option value="high" data-i18n="settings.qualityHigh">High detail</option>
+        </select>
+      </div>
+      <p class="settings-hint" data-i18n="settings.qualityHint">Auto adapts detail to this device.</p>
+      <button class="btn ghost" id="tiltBtn" type="button" title="Tilt the 3D map" data-i18n="settings.tilt">3D tilt</button>
+    </section>
+
+    <section class="settings-section">
+      <h3 data-i18n="settings.layers">Layers</h3>
+      <div class="settings-grid">
+        <button class="btn ghost active" id="networkBtn" type="button" title="Show all lines and stations" data-i18n="settings.network">Network</button>
+        <button class="btn ghost active" id="placesBtn" type="button" title="Show cafés, restaurants and landmarks" data-i18n="settings.places">Places</button>
+      </div>
+      <div class="settings-checks">
+        <label class="settings-check"><input type="checkbox" id="settingsCityLabels" /><span data-i18n="settings.cityLabels">City labels</span></label>
+        <label class="settings-check"><input type="checkbox" id="settingsBuildings" /><span data-i18n="settings.buildings">3D buildings</span></label>
+        <label class="settings-check"><input type="checkbox" id="settingsRouteGlow" /><span data-i18n="settings.routeGlow">Route glow</span></label>
+        <label class="settings-check"><input type="checkbox" id="settingsTrainAnim" /><span data-i18n="settings.trainAnimation">Train animation</span></label>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h3 data-i18n="settings.actions">Actions</h3>
+      <div class="settings-grid">
+        <button class="btn ghost" id="fitBtn" type="button" title="Show the whole route" data-i18n="settings.fit">Fit route</button>
+        <button class="btn ghost" id="moroccoBtn" type="button" title="Show all of Morocco" data-i18n="settings.morocco">Morocco</button>
+        <button class="btn ghost" id="focusBtn" type="button" title="Isolate the selected trip from the network" data-i18n="settings.focus" hidden>Focus trip</button>
+        <button class="btn ghost" id="settingsFullscreen" type="button" data-i18n="settings.fullscreen">Full screen</button>
+        <button class="btn ghost" id="refreshBtn" type="button" title="Re-fetch the journey now" data-i18n="settings.refresh">Refresh trip</button>
+        <button class="btn ghost" id="locateBtn" type="button" title="Enable live GPS" data-i18n="settings.gps">Enable GPS</button>
+      </div>
+      <div class="settings-timetable">
+        <span class="small muted" id="gridStatus">Timetables: checking…</span>
+        <button class="link-btn" id="gridRefresh" type="button" title="Check the official timetable page now" data-i18n="settings.check">Check timetables</button>
+      </div>
+    </section>
+
+    <div class="settings-footer">
+      <span class="small muted" data-i18n="settings.localOnly">Runs without API keys; only vector and classic maps are shown.</span>
+      <button class="link-btn" id="mapSettingsReset" type="button" data-i18n="settings.reset">Reset map settings</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- ------------------------- search dialog ------------------------- -->
 <div class="overlay" id="searchOverlay">
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
@@ -893,7 +972,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
 <script src="/map3d.js"></script>
-<script src="/mapextra.js"></script>
 <script src="/i18n.js"></script>
 <script>
 const MOROCCO_TZ = "Africa/Casablanca";
@@ -910,6 +988,14 @@ const state = {
   gpsSpeed: null, gpsFix: null, speedUpdatedAt: 0,
   lastRefresh: 0, autoRefreshMs: 600000,
   networkVisible: localStorage.getItem("oncf:network2") !== "0",
+  mapQuality: localStorage.getItem("oncf:mapQuality") || "auto",
+  cityLabels: localStorage.getItem("oncf:cityLabels") !== "0",
+  buildings3d: localStorage.getItem("oncf:buildings3d") !== "0",
+  routeGlow: localStorage.getItem("oncf:routeGlow") !== "0",
+  trainAnimation: localStorage.getItem("oncf:trainAnim") !== "0",
+  trainAnimMs: 500,
+  lastTrainMove: 0,
+  lastRouteFraction: null,
   pendingLocate: false,
   autoVerify: localStorage.getItem("oncf:autoVerify") !== "0",
   verifying: false,
@@ -1669,7 +1755,7 @@ function syncCityLabels() {
   const name = document.getElementById("basemap").value;
   // Detailed/terrain already carry street labels at city zoom. Add our own
   // bilingual labels at country/regional zoom so those views stay detailed.
-  const show = !journeyFocus && (
+  const show = state.cityLabels && !journeyFocus && (
     name === "satellite" || name === "night" ||
     ((name === "streets" || name === "terrain") && map.getZoom() <= 6)
   );
@@ -2156,6 +2242,9 @@ function progressPoints(fraction) {
 
 function updateRouteProgress(est) {
   if (!state.progressLine) return;
+  const key = est ? Math.round((est.fraction || 0) * 1000) : null;
+  if (key === state.lastRouteFraction) return;
+  state.lastRouteFraction = key;
   const points = est ? progressPoints(est.fraction) : [];
   state.progressLine.setLatLngs(points.length > 1 ? points : []);
 }
@@ -2257,6 +2346,7 @@ function renderMap() {
   if (state.stationLayer) map.removeLayer(state.stationLayer);
   if (state.trainMarker) map.removeLayer(state.trainMarker);
   state.progressLine = null;
+  state.lastRouteFraction = null;
 
   if (state.shape.length > 1) {
     const approximateShape = state.data?.shape_source === "straight";
@@ -3019,8 +3109,11 @@ function maybeAutoRefresh(now) {
 }
 
 function animateTrain() {
-  if (!state.data || document.visibilityState !== "visible") return;
-  const est = scheduledAt(Date.now());
+  if (!state.data || !state.trainAnimation || document.visibilityState !== "visible") return;
+  const now = Date.now();
+  if (now - state.lastTrainMove < state.trainAnimMs) return;
+  state.lastTrainMove = now;
+  const est = scheduledAt(now);
   if (!est) return;
   if (state.trainMarker) {
     // At a station the stop marker already marks the train; only the moving
@@ -3038,6 +3131,7 @@ function animateTrain() {
 }
 
 function tick() {
+  if (document.visibilityState !== "visible") return;
   const now = Date.now();
   const clock = document.getElementById("clock");
   if (clock) clock.textContent = moroccoClock(now);
@@ -4024,7 +4118,7 @@ function initLiveDepartures() {
 const overlay = document.getElementById("searchOverlay");
 const dateInput = document.getElementById("fDate");
 const openSearch = () => {
-  if (typeof mapTools !== "undefined" && mapTools) mapTools.open = false;
+  closeMapSettings();
   overlay.classList.add("show");
   requestAnimationFrame(() => {
     if (state.services.length && fromCombo.value && toCombo.value) {
@@ -4045,7 +4139,7 @@ overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) closeSe
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (overlay.classList.contains("show")) closeSearch();
-  if (mapTools) mapTools.open = false;
+  closeMapSettings();
 });
 overlay.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -4054,17 +4148,52 @@ overlay.addEventListener("keydown", (e) => {
   }
 });
 
-const mapTools = document.getElementById("mapTools");
-if (mapTools) {
-  document.addEventListener("click", (event) => {
-    if (mapTools.open && !mapTools.contains(event.target)) mapTools.open = false;
+const mapSettingsDialog = document.getElementById("mapSettingsDialog");
+document.getElementById("mapSettingsBtn").onclick = openMapSettings;
+document.getElementById("mapSettingsClose").onclick = closeMapSettings;
+if (mapSettingsDialog) {
+  mapSettingsDialog.addEventListener("click", (event) => {
+    if (event.target === mapSettingsDialog) closeMapSettings();
   });
-  mapTools.querySelectorAll(".tools-grid button").forEach((button) => {
-    button.addEventListener("click", () => { mapTools.open = false; });
-  });
-  document.getElementById("engine").addEventListener("change", () => { mapTools.open = false; });
-  document.getElementById("basemap").addEventListener("change", () => { mapTools.open = false; });
 }
+document.getElementById("settingsFullscreen").onclick = () => {
+  document.getElementById("mapFull").click();
+  closeMapSettings();
+};
+document.getElementById("mapSettingsReset").onclick = () => {
+  if (!window.confirm(t("settings.resetConfirm"))) return;
+  for (const key of [
+    "oncf:basemap3", "oncf:engine2", "oncf:mapQuality", "oncf:cityLabels",
+    "oncf:buildings3d", "oncf:routeGlow", "oncf:trainAnim",
+    "oncf:network2", "oncf:places",
+  ]) localStorage.removeItem(key);
+  location.reload();
+};
+document.getElementById("mapQuality").onchange = (event) => {
+  state.mapQuality = event.target.value;
+  localStorage.setItem("oncf:mapQuality", state.mapQuality);
+  applyMapSettings();
+};
+const settingsChecks = {
+  settingsCityLabels: ["cityLabels", "oncf:cityLabels"],
+  settingsBuildings: ["buildings3d", "oncf:buildings3d"],
+  settingsRouteGlow: ["routeGlow", "oncf:routeGlow"],
+  settingsTrainAnim: ["trainAnimation", "oncf:trainAnim"],
+};
+for (const [id, [field, storageKey]] of Object.entries(settingsChecks)) {
+  const input = document.getElementById(id);
+  if (!input) continue;
+  input.addEventListener("change", () => {
+    state[field] = input.checked;
+    localStorage.setItem(storageKey, input.checked ? "1" : "0");
+    applyMapSettings();
+  });
+}
+let settingsResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(settingsResizeTimer);
+  settingsResizeTimer = setTimeout(applyMapSettings, 220);
+});
 
 document.getElementById("liveJumpBtn").onclick = () => {
   document.getElementById("departuresCard").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -4281,6 +4410,7 @@ networkButton.onclick = () => {
   state.networkVisible = !state.networkVisible;
   networkButton.classList.toggle("active", state.networkVisible);
   localStorage.setItem("oncf:network2", state.networkVisible ? "1" : "0");
+  syncMapSettingsControls();
   if (!networkLayer) return;
   if (state.networkVisible) {
     networkLayer.addTo(map);
@@ -4408,44 +4538,34 @@ document.addEventListener("fullscreenchange", () => {
 const engineSelect = document.getElementById("engine");
 localStorage.removeItem("oncf:engine");
 let currentEngine = localStorage.getItem("oncf:engine2") || "vector";
+if (!["vector", "classic"].includes(currentEngine)) currentEngine = "vector";
 let placesVisible = localStorage.getItem("oncf:places") !== "0";
 
 function activeMap() {
   if (currentEngine === "vector" && window.VectorMap && VectorMap.isReady()) return VectorMap;
-  if (currentEngine === "mapbox" && window.MapboxEngine && MapboxEngine.isReady()) return MapboxEngine;
-  if (currentEngine === "google" && window.GoogleEngine && GoogleEngine.isReady()) return GoogleEngine;
   return null;
 }
 
 function setEngine(name, persist = true) {
-  if (!["vector", "mapbox", "google", "classic"].includes(name)) name = "classic";
+  if (!["vector", "classic"].includes(name)) name = "vector";
   if (name === "classic" && isVectorOnlyStyle(document.getElementById("basemap").value)) {
     document.getElementById("basemap").value = "night";
     localStorage.setItem("oncf:basemap3", "night");
   }
 
-  if (name === "mapbox") {
-    const token = localStorage.getItem("oncf:mapboxToken") || window.prompt(t("places.tokenMapbox"));
-    if (!token) { engineSelect.value = currentEngine; return; }
-    localStorage.setItem("oncf:mapboxToken", token);
-  }
-  if (name === "google") {
-    const key = localStorage.getItem("oncf:googleKey") || window.prompt(t("places.tokenGoogle"));
-    if (!key) { engineSelect.value = currentEngine; return; }
-    localStorage.setItem("oncf:googleKey", key);
-  }
-
   currentEngine = name;
   document.body.classList.remove("vector", "mapbox", "google");
-  if (name !== "classic") document.body.classList.add(name);
+  if (name === "vector") document.body.classList.add("vector");
   engineSelect.value = name;
   if (persist) localStorage.setItem("oncf:engine2", name);
 
   if (name === "vector") {
     try {
-      VectorMap.init("map3d");
-      VectorMap.resize();
       const styleName = document.getElementById("basemap").value || "night";
+      // Create MapLibre with the saved style directly. Creating it with Night
+      // and immediately calling setStyle() doubled the initial tile work.
+      VectorMap.init("map3d", styleName);
+      VectorMap.resize();
       if (VectorMap.getBasemap() !== styleName) VectorMap.setBasemap(styleName);
       VectorMap.setPlacesVisible(placesVisible);
       VectorMap.setJourneyFocus(journeyFocus);
@@ -4456,36 +4576,15 @@ function setEngine(name, persist = true) {
     } catch (error) {
       showBanner(t("map.fallback3d", { error: error.message }));
       setEngine("classic", false);
+      return;
     }
-  } else if (name === "mapbox") {
-    MapboxEngine.init(localStorage.getItem("oncf:mapboxToken"))
-      .then(() => {
-        MapboxEngine.resize();
-        MapboxEngine.setBasemap(document.getElementById("basemap").value || "streets");
-        if (state.data) MapboxEngine.renderJourney(state.data, false);
-        if (state.user) MapboxEngine.setUser(state.user[0], state.user[1]);
-      })
-      .catch((error) => {
-        showBanner(t("map.fallbackMapbox", { error: error.message }));
-        setEngine("vector", false);
-      });
-  } else if (name === "google") {
-    GoogleEngine.init(localStorage.getItem("oncf:googleKey"))
-      .then(() => {
-        GoogleEngine.resize();
-        if (state.data) GoogleEngine.renderJourney(state.data, false);
-        if (state.user) GoogleEngine.setUser(state.user[0], state.user[1]);
-      })
-      .catch((error) => {
-        showBanner(t("map.fallbackGoogle", { error: error.message }));
-        setEngine("vector", false);
-      });
   } else {
     map.invalidateSize();
     setBasemap(document.getElementById("basemap").value || "liberty");
     if (state.shape.length) fitRoute();
   }
   syncPlacesButton();
+  applyMapSettings();
 }
 
 engineSelect.onchange = (event) => setEngine(event.target.value);
@@ -4515,6 +4614,7 @@ placesButton.onclick = () => {
     else VectorMap.setBasemap("liberty");
     if (window.VectorMap) VectorMap.setPlacesVisible(true);
     syncPlacesButton();
+    syncMapSettingsControls();
     showBanner(t("places.on"), 5000);
     return;
   }
@@ -4523,6 +4623,7 @@ placesButton.onclick = () => {
   localStorage.setItem("oncf:places", placesVisible ? "1" : "0");
   VectorMap.setPlacesVisible(placesVisible);
   syncPlacesButton();
+  syncMapSettingsControls();
   showBanner(
     placesVisible ? t("places.onDetail") : t("places.off"),
     4500
@@ -4572,6 +4673,74 @@ function refreshMapLocale() {
   if (state.trainMarker && typeof state.trainMarker.getTooltip === "function" && state.trainMarker.getTooltip()) {
     state.trainMarker.setTooltipContent(t("map.scheduledEstimate"));
   }
+}
+
+function mapQualityProfile() {
+  const mobile = window.matchMedia("(max-width: 760px)").matches
+    || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+  if (state.mapQuality === "smooth") {
+    return { labels: 18, buildings: false, glow: false, trainMs: 1100 };
+  }
+  if (state.mapQuality === "high") {
+    return { labels: 80, buildings: true, glow: true, trainMs: 250 };
+  }
+  return {
+    labels: mobile ? 28 : 55,
+    buildings: true,
+    glow: true,
+    trainMs: mobile ? 750 : 500,
+  };
+}
+
+function applyMapSettings() {
+  const profile = mapQualityProfile();
+  state.trainAnimMs = state.trainAnimation ? profile.trainMs : 0;
+  const options = {
+    labels: state.cityLabels ? profile.labels : 0,
+    buildings: state.buildings3d && profile.buildings,
+    routeGlow: state.routeGlow && profile.glow,
+  };
+  if (window.VectorMap && typeof VectorMap.setDisplayOptions === "function") {
+    VectorMap.setDisplayOptions(options);
+  }
+  if (state.line && typeof state.line.getLayers === "function") {
+    const glow = state.line.getLayers()[0];
+    if (glow && glow.setStyle) glow.setStyle({ opacity: options.routeGlow ? 1 : 0 });
+  }
+  syncCityLabels();
+  syncMapSettingsControls();
+}
+
+function syncMapSettingsControls() {
+  if (!["auto", "smooth", "high"].includes(state.mapQuality)) state.mapQuality = "auto";
+  const quality = document.getElementById("mapQuality");
+  if (quality) quality.value = state.mapQuality;
+  const checks = {
+    settingsCityLabels: state.cityLabels,
+    settingsBuildings: state.buildings3d,
+    settingsRouteGlow: state.routeGlow,
+    settingsTrainAnim: state.trainAnimation,
+  };
+  for (const [id, checked] of Object.entries(checks)) {
+    const input = document.getElementById(id);
+    if (input) input.checked = checked;
+  }
+  const network = document.getElementById("networkBtn");
+  if (network) network.classList.toggle("active", state.networkVisible);
+  if (typeof syncPlacesButton === "function") syncPlacesButton();
+}
+
+function openMapSettings() {
+  const dialog = document.getElementById("mapSettingsDialog");
+  if (!dialog) return;
+  document.getElementById("searchOverlay")?.classList.remove("show");
+  syncMapSettingsControls();
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeMapSettings() {
+  const dialog = document.getElementById("mapSettingsDialog");
+  if (dialog && dialog.open) dialog.close();
 }
 
 function refreshLocalizedUi() {
