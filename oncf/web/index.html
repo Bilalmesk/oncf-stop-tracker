@@ -3025,6 +3025,7 @@ async function loadJourney({ train, from, to, date, official, focusStop }) {
     maybeAutoVerify();
     loadTripStatus();
     updateOnboardUi();
+    maybePromptOnboard();
     if (onboardTripMatchesCurrent()) setTimeout(onboardFocus, 800);
   } catch (e) {
     err.textContent = "Error: " + e.message;
